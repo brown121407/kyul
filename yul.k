@@ -15,31 +15,31 @@ this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
 module YUL-SYNTAX
-    imports STRING-SYNTAX
-    imports INT-SYNTAX
-    imports ID-SYNTAX
+    imports BOOL
+    imports UNSIGNED-INT-SYNTAX
 
     syntax Block ::= "{" Statement "}" | "{" "}"
-    // FIXME: The parses is too dumb to work with List{Statement, ""}, and this shit is
+    // FIXME: The parses is too dumb to work with List{Statement, ""}, and this stuff is
     // only mentioned in passing in a comment at https://kframework.org/k-distribution/pl-tutorial/2_languages/1_simple/1_untyped/simple-untyped/
     // syntax Statements ::= List{Statement, ""}
     syntax Statement ::= Block
-                       | FunctionDeclaration
+                       | FunctionDefinition
                        | VariableDeclaration
                        | Assignment
                        | If
                        | Expression
                        | Switch
                        | ForLoop
-                       | BreakContinue
-                       | Leave
-                       | Statement Statement [right]
+                       | "break"
+                       | "continue"
+                       | "leave"
+                       | Statement Statement [left]
 
-    syntax FunctionDeclaration ::= "function" Identifier "(" TypedIdentifierList ")" Block
+    syntax FunctionDefinition ::= "function" Identifier "(" TypedIdentifierList ")" Block
                                  | "function" Identifier "(" TypedIdentifierList ")" "->" TypedIdentifierNeList Block
     syntax VariableDeclaration ::= "let" TypedIdentifierNeList
                                  | "let" TypedIdentifierNeList ":=" Expression
-    syntax Assignment ::= IdentifierList ":=" Expression
+    syntax Assignment ::= IdentifierNeList ":=" Expression      [strict(2)]
     syntax Expression ::= FunctionCall
                         | Identifier
                         | Literal
@@ -51,32 +51,30 @@ module YUL-SYNTAX
     syntax Case ::= "case" Literal Block
     syntax Default ::= "default" Block
     syntax ForLoop ::= "for" Block Expression Block Block
-    syntax BreakContinue ::= "break" | "continue"
-    syntax Leave ::= "leave"
-    syntax FunctionCall ::= Identifier "(" FunctionArgs ")"
-    syntax FunctionArgs ::= List{Expression, ","}
-    syntax IdentifierList ::= NeList{Identifier, ","}
+    syntax FunctionCall ::= Identifier "(" FunctionArgs ")"     [strict(2)]
+    syntax FunctionArgs ::= List{Expression, ","}               [strict]
+    // FIXME: Find a way to add $ to the start of identifiers without messing up the builtin $PGM variable.
+    syntax Identifier ::= r"[a-zA-Z_][a-zA-Z_$0-9.]*"           [token]
+    syntax IdentifierNeList ::= NeList{Identifier, ","}
     syntax TypeName ::= Identifier
     syntax TypedIdentifier ::= Identifier
                              | Identifier ":" TypeName
     syntax TypedIdentifierList ::= List{TypedIdentifier, ","}
     syntax TypedIdentifierNeList ::= NeList{TypedIdentifier, ","}
 
-    syntax LiteralVal ::= NumberLiteral
+    syntax LiteralUntyped ::= NumberLiteral
                         | StringLiteral
                         | TrueLiteral
                         | FalseLiteral
-    syntax Literal ::= LiteralVal
-                     | LiteralVal ":" TypeName
+    syntax Literal ::= LiteralUntyped
+                     | LiteralUntyped ":" TypeName
 
     syntax NumberLiteral ::= HexNumber | DecimalNumber
-    syntax HexNumber ::= "0xTODO" // TODO
-    syntax DecimalNumber ::= Int // TODO
+    syntax StringLiteral ::= r"[\\\"]([^\\\"\\r\\n\\\\]|\\\\.)*[\\\"]"                  [token]
     syntax TrueLiteral ::= "true"
     syntax FalseLiteral ::= "false"
-    syntax Identifier ::= Id // TODO
-    syntax StringLiteral ::= String // TODO
-    syntax HexLiteral ::= "0xTODO" // TODO
+    syntax HexNumber ::= r"0x[0-9a-fA-F]+"                                              [token]
+    syntax DecimalNumber ::= Int
 
     syntax Object ::= "object" StringLiteral "{" Code ObjectOrDataList "}"
     syntax ObjectOrDataList ::= List{ObjectOrData, ""}
@@ -84,31 +82,59 @@ module YUL-SYNTAX
     syntax Code ::= "code" Block
     syntax Data ::= "data" StringLiteral HexLiteral
                   | "data" StringLiteral StringLiteral
+    syntax HexLiteral ::= r"hex([\\\"]([0-9a-fA-F]{2})*[\\\"]|'([0-9a-fA-F]{2})*')"     [token]
 
-    syntax Pgm ::= Object | Block
+    // TODO: Object | Block
+    syntax Pgm ::= Block
 endmodule
 
 module YUL
     imports MAP
     imports LIST
+    imports INT
     imports YUL-SYNTAX
 
-    rule object _ { code { S:Statement } ODLIST:ObjectOrDataList } => S ~> ODLIST
-    rule .ObjectOrDataList => .
-    rule <k> { } => . ... </k>
-    rule <k> { S } => S </k>
-    rule <k> S0:Statement S1:Statement => S0 ~> S1 ... </k>
-    rule <k> function ID ( PARAMS ) BODY => . ... </k>
-        <funcs> FS => FS [ ID <- function ID ( PARAMS ) BODY ] </funcs>
-    rule <k> S:Statement => . ... </k>
-        <block-statements> ... .List => ListItem(S) </block-statements>
+    syntax KResult ::= Int
+    syntax KItem ::= #envRestore(Map)
 
-    syntax KItem ::= #foobar(K)
     configuration <T>
-        // <k> $PGM:Pgm </k>
-        <k></k>
-        <funcs> .Map </funcs>
-        // TODO: Make this a map of lists to handle nested blocks
-        <block-statements> .List </block-statements>
+        <k> $PGM:Pgm </k>
+        <env> .Map </env>
+        <store> .Map </store>
+        <to-filter> . </to-filter>
+        <filtered> .List </filtered>
     </T>
+
+    rule <k> { } => . </k>
+    rule <k> { S:Statement } => . </k>
+         <to-filter> . => S </to-filter>
+         <filtered> .List => ListItem(#envRestore(ENV)) ... </filtered>
+         <env> ENV </env>
+
+    rule <to-filter> REST:Statement S:Statement => REST </to-filter>        
+         <filtered> .List => ListItem(S) ... </filtered>                
+        when notBool isFunctionDefinition(S)                            [priority(0)]
+    rule <to-filter> S:Statement => . </to-filter>                      
+         <filtered> .List => ListItem(S) ... </filtered>
+        when notBool isFunctionDefinition(S)
+
+    // TODO: Save FunctionDefinition in env/store
+    rule <to-filter> REST:Statement _:FunctionDefinition => REST </to-filter>
+    rule <to-filter> _:FunctionDefinition => . </to-filter>
+
+    rule <k> . => S </k>
+         <to-filter> . </to-filter>
+         <filtered> ListItem(S) => .List ... </filtered>
+
+    rule <k> S:Statement => . </k>
+        when notBool isBlock(S)
+
+    rule <k> #envRestore(ENV) => . </k>
+         <env> _ => ENV </env>
+
+    rule .FunctionArgs => .
+    
+
+    // rule <k> for { S:Statement REST:Statement } COND:Expression POST:Block BODY:Block => S REST ~> for { } COND POST BODY ... </k>
+    //      <to-filter> . </to-filter>
 endmodule
