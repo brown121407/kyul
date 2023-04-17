@@ -58,7 +58,8 @@ module YUL-SYNTAX
     syntax IdentifierNeList ::= NeList{Identifier, ","}
     syntax TypeName ::= Identifier
     syntax TypedIdentifier ::= Identifier
-                             | Identifier ":" TypeName
+                         // TODO: Enable typed identifiers
+                         //     | Identifier ":" TypeName
     syntax TypedIdentifierList ::= List{TypedIdentifier, ","}
     syntax TypedIdentifierNeList ::= NeList{TypedIdentifier, ","}
 
@@ -96,21 +97,45 @@ module YUL
 
     syntax KResult ::= Int
     syntax KItem ::= #envRestore(Map)
+                   | #start()
+                   | #save(Identifier, Int)
 
     configuration <T>
-        <k> $PGM:Pgm </k>
+        <k> #start() ~> $PGM:Pgm </k>
         <env> .Map </env>
         <store> .Map </store>
         <to-filter> . </to-filter>
         <filtered> .List </filtered>
+        <eval-result> . </eval-result>
     </T>
+
+    // Desugaring
+    rule for { S:Statement } COND:Expression POST:Block BODY:Block => S ~> for { } COND POST BODY   [structural]
+
+    // Execution
+    rule <k> #start() ~> { } => . </k>
+    rule <k> #start() ~> { S:Statement } => . </k>
+         <to-filter> . => S </to-filter>
 
     rule <k> { } => . </k>
     rule <k> { S:Statement } => . </k>
          <to-filter> . => S </to-filter>
          <filtered> .List => ListItem(#envRestore(ENV)) ... </filtered>
-         <env> ENV </env>
+         <env> ENV </env>                                               [priority(0)]
+    rule <k> . => S </k>
+         <to-filter> . </to-filter>
+         <filtered> ListItem(S) => .List ... </filtered>
+    rule <k> let ID , IDS:TypedIdentifierNeList => #save(ID, 0) ~> let IDS </k>
+    rule <k> let .TypedIdentifierNeList => . </k>
+    rule <k> #save(ID, VAL:Int) => . ... </k>
+         <to-filter> . </to-filter>
+         <env> ENV => ENV[ID <- !L:Int] </env>
+         <store> ... .Map => !L |-> VAL ... </store>
+    rule <k> #envRestore(ENV) => . ... </k>
+         <to-filter> . </to-filter>
+         <env> _ => ENV </env>
 
+    // Function hoisting
     rule <to-filter> REST:Statement S:Statement => REST </to-filter>        
          <filtered> .List => ListItem(S) ... </filtered>                
         when notBool isFunctionDefinition(S)                            [priority(0)]
@@ -121,20 +146,4 @@ module YUL
     // TODO: Save FunctionDefinition in env/store
     rule <to-filter> REST:Statement _:FunctionDefinition => REST </to-filter>
     rule <to-filter> _:FunctionDefinition => . </to-filter>
-
-    rule <k> . => S </k>
-         <to-filter> . </to-filter>
-         <filtered> ListItem(S) => .List ... </filtered>
-
-    rule <k> S:Statement => . </k>
-        when notBool isBlock(S)
-
-    rule <k> #envRestore(ENV) => . </k>
-         <env> _ => ENV </env>
-
-    rule .FunctionArgs => .
-    
-
-    // rule <k> for { S:Statement REST:Statement } COND:Expression POST:Block BODY:Block => S REST ~> for { } COND POST BODY ... </k>
-    //      <to-filter> . </to-filter>
 endmodule
