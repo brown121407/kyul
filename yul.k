@@ -206,41 +206,38 @@ module YUL
         </evaluation>
     </T>
 
-    // Desugaring
-    rule for { S:Statement } COND:Expression POST:Block BODY:Block => S ~> for { } COND POST BODY   [structural]
-
     // Execution
     rule <k> #start ~> { } => . </k>
 
     rule <k> #start ~> { S:Statement } => . </k>
          <to-filter> . => S </to-filter>
 
-    rule <k> { } => . </k>
+    rule <k> { } => . ... </k>
 
-    rule <k> { S:Statement } => . </k>
+    rule <k> { S:Statement } => . ... </k>
          <to-filter> . => S </to-filter>
          <filtered> .List => ListItem(#envRestore(ENV)) ... </filtered>
          <env> ENV </env>                                               [priority(0)]
 
     rule <k> . => S </k>
          <to-filter> . </to-filter>
-         <filtered> ListItem(S) => .List ... </filtered>
+         <filtered> ListItem(S) => .List ... </filtered>                [priority(250)]
 
     rule <k> ID:Identifier => VAL ... </k>
          <env> ... ID |-> L ... </env>
          <store> ... L |-> VAL:Int ... </store>
 
-    rule <k> let ID , IDS:TypedIdentifierNeList => #bind(ID, 0) ~> let IDS </k>
+    rule <k> let ID , IDS:TypedIdentifierNeList => #letBind(ID, 0) ~> let IDS ... </k>
 
     rule <k> let .TypedIdentifierNeList => . ... </k>
 
-    rule <k> let ID , IDS:TypedIdentifierNeList := #multi(E:Expression REST) => #letBind(ID, E) ~> let IDS := #multi(REST) </k>
-    rule <k> let .TypedIdentifierNeList := #multi(.Expressions) => . </k>
-    rule <k> let ID , .TypedIdentifierNeList := E:Expression => #letBind(ID, E) </k>
+    rule <k> let ID , IDS:TypedIdentifierNeList := #multi(E:Expression REST) => #letBind(ID, E) ~> let IDS := #multi(REST) ... </k>
+    rule <k> let .TypedIdentifierNeList := #multi(.Expressions) => . ... </k>
+    rule <k> let ID , .TypedIdentifierNeList := E:Expression => #letBind(ID, E) ... </k>
 
-    rule <k> ID, IDS:IdentifierNeList := #multi(E:Expression REST) => #bind(ID, E) ~> IDS := #multi(REST) </k>
-    rule <k> .IdentifierNeList := #multi(.Expressions) => . </k>
-    rule <k> ID, .IdentifierNeList := E:Expression => #bind(ID, E) </k>
+    rule <k> ID, IDS:IdentifierNeList := #multi(E:Expression REST) => #bind(ID, E) ~> IDS := #multi(REST) ... </k>
+    rule <k> .IdentifierNeList := #multi(.Expressions) => . ... </k>
+    rule <k> ID, .IdentifierNeList := E:Expression => #bind(ID, E) ... </k>
 
     rule <k> #letBind(ID, VAL:Int) => . ... </k>
          <env> ENV:Map => ENV[ID <- !L:Int] </env>
@@ -255,8 +252,12 @@ module YUL
          <env> _ => ENV </env>
 
     // If
-    rule <k> if 0 _ => . </k>
-    rule <k> if _ BLOCK => BLOCK </k> [owise]
+    rule <k> if 0 _ => . ... </k>
+    rule <k> if _ BLOCK => BLOCK ... </k>    [owise]
+
+    // For
+    rule <k> for { S } COND POST BODY => { S for { } COND POST BODY } ... </k>                  [structural]
+    rule <k> for { } COND POST BODY => if COND { BODY POST for { } COND POST BODY } ... </k>    [structural]
 
     // Function execution
     rule <k> FUN:Identifier ( ARGS:FunctionArgs ) => ARGS ~> #functionCall(FUN) ... </k>
