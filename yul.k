@@ -44,7 +44,7 @@ module YUL-SYNTAX
     syntax Expression ::= FunctionCall
                         | Identifier
                         | Literal                               
-    syntax If ::= "if" Expression Block
+    syntax If ::= "if" Expression Block                         [strict(1)]
     syntax Switch ::= "switch" Expression Cases
                     | "switch" Expression Cases Default
                     | "switch" Expression Default
@@ -183,6 +183,7 @@ module YUL
                      | #multi(Expressions)
     syntax KItem ::= #envRestore(Map)
                    | "#start"
+                   | #letBind(Identifier, Expression)   [strict(2)]
                    | #bind(Identifier, Expression)      [strict(2)]
                    | #functionCall(Identifier) 
                    | #toEvalArg(Expression)             [strict]
@@ -196,10 +197,13 @@ module YUL
         <k> #start ~> $PGM:Pgm </k>
         <env> .Map </env>
         <store> .Map </store>
-        <to-filter> . </to-filter>
-        <filtered> .List </filtered>
-        <results> .List </results>
-        <fn-args> . </fn-args>
+        <evaluation>
+            <fn-args> . </fn-args>
+            <hoisting>
+                <to-filter> . </to-filter>
+                <filtered> .List </filtered>
+            </hoisting>
+        </evaluation>
     </T>
 
     // Desugaring
@@ -222,29 +226,37 @@ module YUL
          <to-filter> . </to-filter>
          <filtered> ListItem(S) => .List ... </filtered>
 
+    rule <k> ID:Identifier => VAL ... </k>
+         <env> ... ID |-> L ... </env>
+         <store> ... L |-> VAL:Int ... </store>
+
     rule <k> let ID , IDS:TypedIdentifierNeList => #bind(ID, 0) ~> let IDS </k>
 
     rule <k> let .TypedIdentifierNeList => . ... </k>
 
-    rule <k> let ID , IDS:TypedIdentifierNeList := #multi(E:Expression REST) => #bind(ID, E) ~> let IDS := #multi(REST) </k>
+    rule <k> let ID , IDS:TypedIdentifierNeList := #multi(E:Expression REST) => #letBind(ID, E) ~> let IDS := #multi(REST) </k>
     rule <k> let .TypedIdentifierNeList := #multi(.Expressions) => . </k>
-    rule <k> let ID , .TypedIdentifierNeList := E:Expression => #bind(ID, E) </k>
+    rule <k> let ID , .TypedIdentifierNeList := E:Expression => #letBind(ID, E) </k>
 
     rule <k> ID, IDS:IdentifierNeList := #multi(E:Expression REST) => #bind(ID, E) ~> IDS := #multi(REST) </k>
     rule <k> .IdentifierNeList := #multi(.Expressions) => . </k>
     rule <k> ID, .IdentifierNeList := E:Expression => #bind(ID, E) </k>
 
+    rule <k> #letBind(ID, VAL:Int) => . ... </k>
+         <env> ENV:Map => ENV[ID <- !L:Int] </env>
+         <store> ... .Map => !L |-> VAL ... </store>        
+        when notBool(ID in_keys(ENV))
+
     rule <k> #bind(ID, VAL:Int) => . ... </k>
-         <env> ID |-> L </env>
-         <store> STORE => STORE[L <- VAL] </store>      
-         
-    rule <k> #bind(ID, VAL:Int) => . ... </k>
-         <env> ENV => ENV[ID <- !L:Int] </env>
-         <store> ... .Map => !L |-> VAL ... </store>        [priority(51)]
+         <env> ... ID |-> L ... </env>
+         <store> STORE => STORE[L <- VAL] </store>
 
     rule <k> #envRestore(ENV) => . ... </k>
-         <to-filter> . </to-filter>
          <env> _ => ENV </env>
+
+    // If
+    rule <k> if 0 _ => . </k>
+    rule <k> if _ BLOCK => BLOCK </k> [owise]
 
     // Function execution
     rule <k> FUN:Identifier ( ARGS:FunctionArgs ) => ARGS ~> #functionCall(FUN) ... </k>
@@ -258,6 +270,7 @@ module YUL
     rule <k> #toEvalArg(ARG) => . ... </k>
          <fn-args> ARGS:FunctionArgs => ARG, ARGS ... </fn-args>
 
+    // TODO: Check if these need to wrap around.
     rule <k> #functionCall(add) => I1 +Int I2 ... </k>
          <fn-args> I1:Int, I2:Int => . ... </fn-args>
     rule <k> #functionCall(sub) => I1 -Int I2 ... </k>
@@ -276,10 +289,10 @@ module YUL
          <filtered> .List => ListItem(S) ... </filtered>
         when notBool isFunctionDefinition(S)
 
-    rule <to-filter> REST:Statement FD:FunctionDefinition => #hoist(FD) ~> REST </to-filter>
-    rule <to-filter> FD:FunctionDefinition => #hoist(FD) </to-filter>
+    rule <to-filter> REST:Statement FD:FunctionDefinition => #hoist(FD) ~> REST </to-filter>    [priority(1)]
+    rule <to-filter> FD:FunctionDefinition => #hoist(FD) </to-filter>                           [priority(2)]
 
-    // TODO: Prevent overwriting exiting ID in env.
+    // TODO: Prevent shadowing.
     rule <to-filter> #hoist(function ID ( PARAMS ) -> RETURNS BLOCK) => . ... </to-filter>
          <env> ENV => ENV[ID <- !L:Int] </env>
          <store> ... .Map => !L |-> (function ID ( PARAMS ) -> RETURNS BLOCK) ... </store>
