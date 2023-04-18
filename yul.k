@@ -39,7 +39,7 @@ module YUL-SYNTAX
     syntax FunctionDefinition ::= "function" Identifier "(" TypedIdentifierList ")" Block
                                  | "function" Identifier "(" TypedIdentifierList ")" "->" TypedIdentifierNeList Block
     syntax VariableDeclaration ::= "let" TypedIdentifierNeList
-                                 | "let" TypedIdentifierNeList ":=" Expression
+                                 | "let" TypedIdentifierNeList ":=" Expression      [strict(2)]
     syntax Assignment ::= IdentifierNeList ":=" Expression      [strict(2)]
     syntax Expression ::= FunctionCall
                         | Identifier
@@ -178,11 +178,19 @@ module YUL
     imports INT
     imports YUL-SYNTAX
 
+    syntax Expressions ::= List{Expression, ""}
     syntax KResult ::= Int
+                     | #multi(Expressions)
     syntax KItem ::= #envRestore(Map)
                    | "#start"
-                   | #bind(Identifier, Int)
-                   | "#results"
+                   | #bind(Identifier, Expression)      [strict(2)]
+                   | #functionCall(Identifier) 
+                   | #toEvalArg(Expression)             [strict]
+                   | #hoist(FunctionDefinition)
+    syntax RealAssignment ::= Assignment
+                            | IdentifierNeList ":=" "#multi" "(" Expressions ")"      [strict(2)]
+    syntax RealVariableDeclaration ::= VariableDeclaration
+                                     | "let" TypedIdentifierNeList ":=" "#multi" "(" Expressions ")"      [strict(2)]
 
     configuration <T>
         <k> #start ~> $PGM:Pgm </k>
@@ -216,21 +224,29 @@ module YUL
 
     rule <k> let ID , IDS:TypedIdentifierNeList => #bind(ID, 0) ~> let IDS </k>
 
-    rule <k> let .TypedIdentifierNeList => . </k>
+    rule <k> let .TypedIdentifierNeList => . ... </k>
+
+    rule <k> let ID , IDS:TypedIdentifierNeList := #multi(E:Expression REST) => #bind(ID, E) ~> let IDS := #multi(REST) </k>
+    rule <k> let .TypedIdentifierNeList := #multi(.Expressions) => . </k>
+    rule <k> let ID , .TypedIdentifierNeList := E:Expression => #bind(ID, E) </k>
+
+    rule <k> ID, IDS:IdentifierNeList := #multi(E:Expression REST) => #bind(ID, E) ~> IDS := #multi(REST) </k>
+    rule <k> .IdentifierNeList := #multi(.Expressions) => . </k>
+    rule <k> ID, .IdentifierNeList := E:Expression => #bind(ID, E) </k>
 
     rule <k> #bind(ID, VAL:Int) => . ... </k>
-         <to-filter> . </to-filter>
+         <env> ID |-> L </env>
+         <store> STORE => STORE[L <- VAL] </store>      
+         
+    rule <k> #bind(ID, VAL:Int) => . ... </k>
          <env> ENV => ENV[ID <- !L:Int] </env>
-         <store> ... .Map => !L |-> VAL ... </store>
+         <store> ... .Map => !L |-> VAL ... </store>        [priority(51)]
 
     rule <k> #envRestore(ENV) => . ... </k>
          <to-filter> . </to-filter>
          <env> _ => ENV </env>
 
     // Function execution
-    syntax KItem ::= #functionCall(Identifier) 
-                   | #toEvalArg(Expression)             [strict]
-
     rule <k> FUN:Identifier ( ARGS:FunctionArgs ) => ARGS ~> #functionCall(FUN) ... </k>
          <fn-args> K => .FunctionArgs ~> K </fn-args>
 
@@ -260,8 +276,15 @@ module YUL
          <filtered> .List => ListItem(S) ... </filtered>
         when notBool isFunctionDefinition(S)
 
+    rule <to-filter> REST:Statement FD:FunctionDefinition => #hoist(FD) ~> REST </to-filter>
+    rule <to-filter> FD:FunctionDefinition => #hoist(FD) </to-filter>
 
-    // TODO: Save FunctionDefinition in env/store
-    rule <to-filter> REST:Statement _:FunctionDefinition => REST </to-filter>
-    rule <to-filter> _:FunctionDefinition => . </to-filter>
+    // TODO: Prevent overwriting exiting ID in env.
+    rule <to-filter> #hoist(function ID ( PARAMS ) -> RETURNS BLOCK) => . ... </to-filter>
+         <env> ENV => ENV[ID <- !L:Int] </env>
+         <store> ... .Map => !L |-> (function ID ( PARAMS ) -> RETURNS BLOCK) ... </store>
+
+    rule <to-filter> #hoist(function ID ( PARAMS ) BLOCK) => . ... </to-filter>
+         <env> ENV => ENV[ID <- !L:Int] </env>
+         <store> ... .Map => !L |-> (function ID ( PARAMS ) BLOCK) ... </store>
 endmodule
