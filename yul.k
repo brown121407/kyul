@@ -17,12 +17,13 @@ this program. If not, see <https://www.gnu.org/licenses/>.
 module YUL-SYNTAX
     imports BOOL
     imports UNSIGNED-INT-SYNTAX
+    imports STRING-SYNTAX
 
-    syntax Block ::= "{" Statement "}" | "{" "}"
+    syntax Block ::= "{" Statement "}" | "{" "}"            [klabel("Block"), symbol]
     // FIXME: The parses is too dumb to work with List{Statement, ""}, and this stuff is
     // only mentioned in passing in a comment at https://kframework.org/k-distribution/pl-tutorial/2_languages/1_simple/1_untyped/simple-untyped/
     // syntax Statements ::= List{Statement, ""}
-    syntax Statement ::= Block
+    syntax Statement ::= Block                             
                        | FunctionDefinition
                        | VariableDeclaration
                        | Assignment
@@ -42,7 +43,7 @@ module YUL-SYNTAX
     syntax Assignment ::= IdentifierNeList ":=" Expression      [strict(2)]
     syntax Expression ::= FunctionCall
                         | Identifier
-                        | Literal
+                        | Literal                               
     syntax If ::= "if" Expression Block
     syntax Switch ::= "switch" Expression Cases
                     | "switch" Expression Cases Default
@@ -51,10 +52,87 @@ module YUL-SYNTAX
     syntax Case ::= "case" Literal Block
     syntax Default ::= "default" Block
     syntax ForLoop ::= "for" Block Expression Block Block
-    syntax FunctionCall ::= Identifier "(" FunctionArgs ")"     [strict(2)]
-    syntax FunctionArgs ::= List{Expression, ","}               [strict]
+    syntax FunctionCall ::= Identifier "(" FunctionArgs ")" 
+    syntax FunctionArgs ::= List{Expression, ","}               
+
     // FIXME: Find a way to add $ to the start of identifiers without messing up the builtin $PGM variable.
-    syntax Identifier ::= r"[a-zA-Z_][a-zA-Z_$0-9.]*"           [token]
+    syntax Identifier ::= "add"                                 [token]
+                        | "sub"                                 [token]
+                        | "mul"                                 [token]
+                        | "div"                                 [token]
+                        | "sdiv"                                 [token]
+                        | "mod"                                 [token]
+                        | "smod"                                 [token]
+                        | "exp"                                 [token]
+                        | "not"                                 [token]
+                        | "lt"                                 [token]
+                        | "gt"                                 [token]
+                        | "slt"                                 [token]
+                        | "sgt"                                 [token]
+                        | "eq"                                 [token]
+                        | "iszero"                                 [token]
+                        | "and"                                 [token]
+                        | "or"                                 [token]
+                        | "xor"                                 [token]
+                        | "byte"                                 [token]
+                        | "shl"                                 [token]
+                        | "shr"                                 [token]
+                        | "sar"                                 [token]
+                        | "addmod"                                 [token]
+                        | "mulmod"                                 [token]
+                        | "signextend"                                 [token]
+                        | "keccak256"                                 [token]
+                        | "pc"                                 [token]
+                        | "pop"                                 [token]
+                        | "mload"                                 [token]
+                        | "mstore"                                 [token]
+                        | "mstore8"                                 [token]
+                        | "sload"                                 [token]
+                        | "sstore"                                 [token]
+                        | "msize"                                 [token]
+                        | "gas"                                 [token]
+                        | "address"                                 [token]
+                        | "balance"                                 [token]
+                        | "selfbalance"                                 [token]
+                        | "caller"                                 [token]
+                        | "callvalue"                                 [token]
+                        | "calldataload"                                 [token]
+                        | "calldatasize"                                 [token]
+                        | "calldatacopy"                                 [token]
+                        | "codesize"                                 [token]
+                        | "codecopy"                                 [token]
+                        | "extcodesize"                                 [token]
+                        | "extcodecopy"                                 [token]
+                        | "returndatasize"                                 [token]
+                        | "returndatacopy"                                 [token]
+                        | "extcodehash"                                 [token]
+                        | "create"                                 [token]
+                        | "create2"                                 [token]
+                        | "call"                                 [token]
+                        | "callcode"                                 [token]
+                        | "delegatecall"                                 [token]
+                        | "staticcall"                                 [token]
+                        | "return"                                 [token]
+                        | "revert"                                 [token]
+                        | "selfdestruct"                                 [token]
+                        | "invalid"                                 [token]
+                        | "log0"                                 [token]
+                        | "log1"                                 [token]
+                        | "log2"                                 [token]
+                        | "log3"                                 [token]
+                        | "log4"                                 [token]
+                        | "chainid"                                 [token]
+                        | "basefee"                                 [token]
+                        | "origin"                                 [token]
+                        | "gasprice"                                 [token]
+                        | "blockhash"                                 [token]
+                        | "coinbase"                                 [token]
+                        | "timestamp"                                 [token]
+                        | "number"                                 [token]
+                        | "difficulty"                                 [token]
+                        | "prevrandao"                                 [token]
+                        | "gaslimit"                                 [token]
+                        | r"[a-zA-Z_][a-zA-Z_$0-9.]*"           [token]
     syntax IdentifierNeList ::= NeList{Identifier, ","}
     syntax TypeName ::= Identifier
     syntax TypedIdentifier ::= Identifier
@@ -71,7 +149,13 @@ module YUL-SYNTAX
                      | LiteralUntyped ":" TypeName
 
     syntax NumberLiteral ::= HexNumber | DecimalNumber
-    syntax StringLiteral ::= r"[\\\"]([^\\\"\\r\\n\\\\]|\\\\.)*[\\\"]"                  [token]
+    syntax StringLiteral ::= String
+    // TODO: Solve the issue with the regex below. It makes using config attributes impossible:
+    // [Error] Inner Parser: Parse error: unexpected token '"*"' following token '='.
+    //     Source(/mnt/c/Users/brown/Code/kyul/yul.k)
+    //     Location(112,31,112,34)
+    //     112 |               <foo multiplicity="*" type="Map"></foo>
+    // syntax StringLiteral ::= r"[\\\"]([^\\\"\\r\\n\\\\]|\\\\.)*[\\\"]"                  [token]
     syntax TrueLiteral ::= "true"
     syntax FalseLiteral ::= "false"
     syntax HexNumber ::= r"0x[0-9a-fA-F]+"                                              [token]
@@ -85,8 +169,7 @@ module YUL-SYNTAX
                   | "data" StringLiteral StringLiteral
     syntax HexLiteral ::= r"hex([\\\"]([0-9a-fA-F]{2})*[\\\"]|'([0-9a-fA-F]{2})*')"     [token]
 
-    // TODO: Object | Block
-    syntax Pgm ::= Block
+    syntax Pgm ::= Object | Block
 endmodule
 
 module YUL
@@ -97,51 +180,86 @@ module YUL
 
     syntax KResult ::= Int
     syntax KItem ::= #envRestore(Map)
-                   | #start()
-                   | #save(Identifier, Int)
+                   | "#start"
+                   | #bind(Identifier, Int)
+                   | "#results"
 
     configuration <T>
-        <k> #start() ~> $PGM:Pgm </k>
+        <k> #start ~> $PGM:Pgm </k>
         <env> .Map </env>
         <store> .Map </store>
         <to-filter> . </to-filter>
         <filtered> .List </filtered>
-        <eval-result> . </eval-result>
+        <results> .List </results>
+        <fn-args> . </fn-args>
     </T>
 
     // Desugaring
     rule for { S:Statement } COND:Expression POST:Block BODY:Block => S ~> for { } COND POST BODY   [structural]
 
     // Execution
-    rule <k> #start() ~> { } => . </k>
-    rule <k> #start() ~> { S:Statement } => . </k>
+    rule <k> #start ~> { } => . </k>
+
+    rule <k> #start ~> { S:Statement } => . </k>
          <to-filter> . => S </to-filter>
 
     rule <k> { } => . </k>
+
     rule <k> { S:Statement } => . </k>
          <to-filter> . => S </to-filter>
          <filtered> .List => ListItem(#envRestore(ENV)) ... </filtered>
          <env> ENV </env>                                               [priority(0)]
+
     rule <k> . => S </k>
          <to-filter> . </to-filter>
          <filtered> ListItem(S) => .List ... </filtered>
-    rule <k> let ID , IDS:TypedIdentifierNeList => #save(ID, 0) ~> let IDS </k>
+
+    rule <k> let ID , IDS:TypedIdentifierNeList => #bind(ID, 0) ~> let IDS </k>
+
     rule <k> let .TypedIdentifierNeList => . </k>
-    rule <k> #save(ID, VAL:Int) => . ... </k>
+
+    rule <k> #bind(ID, VAL:Int) => . ... </k>
          <to-filter> . </to-filter>
          <env> ENV => ENV[ID <- !L:Int] </env>
          <store> ... .Map => !L |-> VAL ... </store>
+
     rule <k> #envRestore(ENV) => . ... </k>
          <to-filter> . </to-filter>
          <env> _ => ENV </env>
+
+    // Function execution
+    syntax KItem ::= #functionCall(Identifier) 
+                   | #toEvalArg(Expression)             [strict]
+
+    rule <k> FUN:Identifier ( ARGS:FunctionArgs ) => ARGS ~> #functionCall(FUN) ... </k>
+         <fn-args> K => .FunctionArgs ~> K </fn-args>
+
+    // Arguments are evaluated from right to left.
+    rule <k> ARG:Expression , ARGS:FunctionArgs => ARGS ~> #toEvalArg(ARG) ... </k>
+
+    rule <k> .FunctionArgs => . ... </k>
+    
+    rule <k> #toEvalArg(ARG) => . ... </k>
+         <fn-args> ARGS:FunctionArgs => ARG, ARGS ... </fn-args>
+
+    rule <k> #functionCall(add) => I1 +Int I2 ... </k>
+         <fn-args> I1:Int, I2:Int => . ... </fn-args>
+    rule <k> #functionCall(sub) => I1 -Int I2 ... </k>
+         <fn-args> I1:Int, I2:Int => . ... </fn-args>
+    rule <k> #functionCall(mul) => I1 *Int I2 ... </k>
+         <fn-args> I1:Int, I2:Int => . ... </fn-args>
+    rule <k> #functionCall(div) => I1 /Int I2 ... </k>
+         <fn-args> I1:Int, I2:Int => . ... </fn-args>
 
     // Function hoisting
     rule <to-filter> REST:Statement S:Statement => REST </to-filter>        
          <filtered> .List => ListItem(S) ... </filtered>                
         when notBool isFunctionDefinition(S)                            [priority(0)]
+        
     rule <to-filter> S:Statement => . </to-filter>                      
          <filtered> .List => ListItem(S) ... </filtered>
         when notBool isFunctionDefinition(S)
+
 
     // TODO: Save FunctionDefinition in env/store
     rule <to-filter> REST:Statement _:FunctionDefinition => REST </to-filter>
