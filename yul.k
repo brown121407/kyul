@@ -187,7 +187,7 @@ module YUL
                    | #letBind(Identifier, Expression)   [strict(2)]
                    | #bind(Identifier, Expression)      [strict(2)]
                    | #functionCall(Identifier) 
-                   | #evalArg(Expression)               [strict]
+                   | #evalArg(RealStuff)                [strict]
                    | #hoist(FunctionDefinition)
                    | #realStuff(RealStuff)
     syntax RealStuff ::= Expression
@@ -282,7 +282,9 @@ module YUL
 
     rule <k> .Expressions => . ... </k>
     
-    rule <k> #evalArg(ARG) => . ... </k>
+    rule <k> #evalArg(#multi(ARG:Expression, .Expressions)) => . ... </k>
+         <fn-args> ARGS:Expressions => ARG, ARGS ... </fn-args>
+    rule <k> #evalArg(ARG:Expression) => . ... </k>
          <fn-args> ARGS:Expressions => ARG, ARGS ... </fn-args>
 
     // TODO: Check if these need to wrap around.
