@@ -184,6 +184,7 @@ module YUL
                      | Multi
     syntax KItem ::= #envRestore(Map, Map)
                    | "#start"
+                   | "#funcEnd"
                    | #letBind(Identifier, Expression)   [strict(2)]
                    | #bind(Identifier, Expression)      [strict(2)]
                    | #functionCall(Identifier) 
@@ -265,6 +266,9 @@ module YUL
          <vars> _ => VARS </vars>
          <funcs> _ => FUNCS </funcs>
 
+    rule <k> leave ~> #funcEnd => #funcEnd ... </k>                         [priority(51)]
+    rule <k> leave ~> _:KItem => leave ... </k>                             [priority(52)]
+
     // If
     rule <k> if 0 _ => . ... </k>
     rule <k> if _ BLOCK => BLOCK ... </k>    [owise]
@@ -345,13 +349,15 @@ module YUL
          <funcs> ... ID |-> L ... </funcs>
          <store> ... L |-> (function ID ( PARAMS ) -> RETURNS BODY) ... </store>
 
-    rule <k> #prepareUserFunc(PARAMS, ARGS, BODY, RETURNS) => #argBind(PARAMS, ARGS) ~> #let RETURNS ~> BODY ~> #toReturn(RETURNS) ~> #envRestore(VARS, FUNCS) ... </k>
+    rule <k> #prepareUserFunc(PARAMS, ARGS, BODY, RETURNS) => #argBind(PARAMS, ARGS) ~> #let RETURNS ~> BODY ~> #funcEnd ~> #toReturn(RETURNS) ~> #envRestore(VARS, FUNCS) ... </k>
          <funcs> FUNCS </funcs>
          <vars> VARS => .Map </vars>
 
     rule <k> #argBind(ID:Identifier, PARAMS:TypedIdentifierList, VAL:Expression, ARGS:Expressions) => #let ID := #realStuff(VAL) ~> #argBind(PARAMS, ARGS) ... </k> 
     rule <k> #argBind(.TypedIdentifierList, .Expressions) => . ... </k>
 
+    rule <k> #funcEnd => . ... </k>
+         <to-filter> . </to-filter>
     rule <k> #toReturn(.TypedIdentifierNeList) => #fetchReturns ~> #multi(.Expressions) ... </k>
     rule <k> #toReturn(ID, REST) => #evalReturn(ID) ~> #toReturn(REST) ... </k>
     rule <k> #evalReturn(VAL) => . ... </k>
@@ -361,7 +367,7 @@ module YUL
     rule <k> #fetchReturns ~> #multi(EXPRS) ~> #envRestore(VARS, FUNCS) => #envRestore(VARS, FUNCS) ~> #multi(EXPRS) ... </k>
          <return> .List </return>
 
-    // rule <k> #multi(.Expressions) => . ... </k>
+    rule <k> #multi(.Expressions) => . ... </k>
 
     // Function hoisting
     rule <to-filter> REST:Statement S:Statement => REST </to-filter>        
