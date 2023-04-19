@@ -136,10 +136,9 @@ module YUL-SYNTAX
                         | "gaslimit"                             [token]
                         | r"[a-zA-Z_][a-zA-Z_$0-9.]*"            [token]
     syntax IdentifierNeList ::= NeList{Identifier, ","}
-    syntax TypeName ::= Identifier
+    syntax TypeName ::= "u256"  // The only type available in the EVM dialect.
     syntax TypedIdentifier ::= Identifier
-                         // TODO: Enable typed identifiers
-                         //     | Identifier ":" TypeName
+                             | Identifier ":" TypeName
     syntax TypedIdentifierList ::= List{TypedIdentifier, ","}
     syntax TypedIdentifierNeList ::= NeList{TypedIdentifier, ","}
 
@@ -242,9 +241,11 @@ module YUL
     rule <k> let IDS := E => #let IDS := #realStuff(E) ... </k>
     rule <k> IDS := E => #assign IDS := #realStuff(E) ... </k>
 
+    rule <k> #let ID:Identifier : _:TypeName, IDS:TypedIdentifierNeList => #let ID, IDS ... </k>
     rule <k> #let ID , IDS:TypedIdentifierNeList => #letBind(ID, 0) ~> #let IDS ... </k>
     rule <k> #let .TypedIdentifierNeList => . ... </k>
 
+    rule <k> #let ID:Identifier : _:TypeName, IDS:TypedIdentifierNeList := #realStuff(RS) => #let ID, IDS := #realStuff(RS) ... </k>
     rule <k> #let ID , IDS:TypedIdentifierNeList := #realStuff(#multi(E:Expression, REST)) => #letBind(ID, E) ~> #let IDS := #realStuff(#multi(REST)) ... </k>
     rule <k> #let .TypedIdentifierNeList := #realStuff(#multi(.Expressions)) => . ... </k>
     rule <k> #let ID , .TypedIdentifierNeList := #realStuff(E:Expression) => #letBind(ID, E) ... </k>
@@ -354,11 +355,13 @@ module YUL
          <vars> VARS => .Map </vars>
 
     rule <k> #argBind(ID:Identifier, PARAMS:TypedIdentifierList, VAL:Expression, ARGS:Expressions) => #let ID := #realStuff(VAL) ~> #argBind(PARAMS, ARGS) ... </k> 
+    rule <k> #argBind(ID:Identifier : _:TypeName, PARAMS:TypedIdentifierList, VAL:Expression, ARGS:Expressions) => #let ID := #realStuff(VAL) ~> #argBind(PARAMS, ARGS) ... </k> 
     rule <k> #argBind(.TypedIdentifierList, .Expressions) => . ... </k>
 
     rule <k> #funcEnd => . ... </k>
          <to-filter> . </to-filter>
     rule <k> #toReturn(.TypedIdentifierNeList) => #fetchReturns ~> #multi(.Expressions) ... </k>
+    rule <k> #toReturn(ID : _:TypeName, REST) => #evalReturn(ID) ~> #toReturn(REST) ... </k>
     rule <k> #toReturn(ID, REST) => #evalReturn(ID) ~> #toReturn(REST) ... </k>
     rule <k> #evalReturn(VAL) => . ... </k>
          <return> ... .List => ListItem(VAL) </return>
