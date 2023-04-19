@@ -39,8 +39,8 @@ module YUL-SYNTAX
     syntax FunctionDefinition ::= "function" Identifier "(" TypedIdentifierList ")" Block
                                  | "function" Identifier "(" TypedIdentifierList ")" "->" TypedIdentifierNeList Block
     syntax VariableDeclaration ::= "let" TypedIdentifierNeList
-                                 | "let" TypedIdentifierNeList ":=" Expression      [strict(2)]
-    syntax Assignment ::= IdentifierNeList ":=" Expression      [strict(2)]
+                                 | "let" TypedIdentifierNeList ":=" Expression
+    syntax Assignment ::= IdentifierNeList ":=" Expression
     syntax Expression ::= FunctionCall
                         | Identifier
                         | Literal                               
@@ -181,18 +181,21 @@ module YUL
     imports YUL-SYNTAX
 
     syntax KResult ::= Int
-                     | #multi(Expressions)
+                     | Multi
     syntax KItem ::= #envRestore(Map, Map)
                    | "#start"
                    | #letBind(Identifier, Expression)   [strict(2)]
                    | #bind(Identifier, Expression)      [strict(2)]
                    | #functionCall(Identifier) 
-                   | #evalArg(Expression)             [strict]
+                   | #evalArg(Expression)               [strict]
                    | #hoist(FunctionDefinition)
-    syntax RealAssignment ::= Assignment
-                            | IdentifierNeList ":=" "#multi" "(" Expressions ")"
-    syntax RealVariableDeclaration ::= VariableDeclaration
-                                     | "let" TypedIdentifierNeList ":=" "#multi" "(" Expressions ")"
+                   | #realStuff(RealStuff)
+    syntax RealStuff ::= Expression
+                       | Multi
+    syntax Multi ::= #multi(Expressions)
+    syntax RealVariableDeclaration ::= "#let" TypedIdentifierNeList
+                                     | "#let" TypedIdentifierNeList ":=" "#realStuff" "(" RealStuff ")"             [strict(2)]
+    syntax RealAssignment ::= "#assign" IdentifierNeList ":=" "#realStuff" "(" RealStuff ")"                      [strict(2)]
 
     configuration <T>
         <k> #start ~> $PGM:Pgm </k>
@@ -234,17 +237,20 @@ module YUL
          <vars> ... ID |-> L ... </vars> 
          <store> ... L |-> VAL:Int ... </store>
 
-    rule <k> let ID , IDS:TypedIdentifierNeList => #letBind(ID, 0) ~> let IDS ... </k>
+    rule <k> let IDS => #let IDS ... </k>
+    rule <k> let IDS := E => #let IDS := #realStuff(E) ... </k>
+    rule <k> IDS := E => #assign IDS := #realStuff(E) ... </k>
 
-    rule <k> let .TypedIdentifierNeList => . ... </k>
+    rule <k> #let ID , IDS:TypedIdentifierNeList => #letBind(ID, 0) ~> #let IDS ... </k>
+    rule <k> #let .TypedIdentifierNeList => . ... </k>
 
-    rule <k> let ID , IDS:TypedIdentifierNeList := #multi(E:Expression, REST) => #letBind(ID, E) ~> let IDS := #multi(REST) ... </k>
-    rule <k> let .TypedIdentifierNeList := #multi(.Expressions) => . ... </k>
-    rule <k> let ID , .TypedIdentifierNeList := E:Expression => #letBind(ID, E) ... </k>
+    rule <k> #let ID , IDS:TypedIdentifierNeList := #realStuff(#multi(E:Expression, REST)) => #letBind(ID, E) ~> #let IDS := #realStuff(#multi(REST)) ... </k>
+    rule <k> #let .TypedIdentifierNeList := #realStuff(#multi(.Expressions)) => . ... </k>
+    rule <k> #let ID , .TypedIdentifierNeList := #realStuff(E:Expression) => #letBind(ID, E) ... </k>
 
-    rule <k> ID, IDS:IdentifierNeList := #multi(E:Expression, REST) => #bind(ID, E) ~> IDS := #multi(REST) ... </k>
-    rule <k> .IdentifierNeList := #multi(.Expressions) => . ... </k>
-    rule <k> ID, .IdentifierNeList := E:Expression => #bind(ID, E) ... </k>
+    rule <k> #assign ID, IDS:IdentifierNeList := #realStuff(#multi(E:Expression, REST)) => #bind(ID, E) ~> #assign IDS := #realStuff(#multi(REST)) ... </k>
+    rule <k> #assign .IdentifierNeList := #realStuff(#multi(.Expressions)) => . ... </k>
+    rule <k> #assign ID, .IdentifierNeList := #realStuff(E:Expression) => #bind(ID, E) ... </k>
 
     rule <k> #letBind(ID, VAL:Int) => . ... </k>
          <vars> ENV:Map => ENV[ID <- !L:Int] </vars>
@@ -337,11 +343,11 @@ module YUL
          <funcs> ... ID |-> L ... </funcs>
          <store> ... L |-> (function ID ( PARAMS ) -> RETURNS BODY) ... </store>
 
-    rule <k> #prepareUserFunc(PARAMS, ARGS, BODY, RETURNS) => #argBind(PARAMS, ARGS) ~> let RETURNS ~> BODY ~> #toReturn(RETURNS) ~> #envRestore(VARS, FUNCS) ... </k>
+    rule <k> #prepareUserFunc(PARAMS, ARGS, BODY, RETURNS) => #argBind(PARAMS, ARGS) ~> #let RETURNS ~> BODY ~> #toReturn(RETURNS) ~> #envRestore(VARS, FUNCS) ... </k>
          <funcs> FUNCS </funcs>
          <vars> VARS => .Map </vars>
 
-    rule <k> #argBind(ID:Identifier, PARAMS:TypedIdentifierList, VAL:Expression, ARGS:Expressions) => let ID := VAL ~> #argBind(PARAMS, ARGS) ... </k> 
+    rule <k> #argBind(ID:Identifier, PARAMS:TypedIdentifierList, VAL:Expression, ARGS:Expressions) => #let ID := #realStuff(VAL) ~> #argBind(PARAMS, ARGS) ... </k> 
     rule <k> #argBind(.TypedIdentifierList, .Expressions) => . ... </k>
 
     rule <k> #toReturn(.TypedIdentifierNeList) => #fetchReturns ~> #multi(.Expressions) ... </k>
@@ -353,7 +359,7 @@ module YUL
     rule <k> #fetchReturns ~> #multi(EXPRS) ~> #envRestore(VARS, FUNCS) => #envRestore(VARS, FUNCS) ~> #multi(EXPRS) ... </k>
          <return> .List </return>
 
-    rule <k> #multi(.Expressions) => . ... </k>
+    // rule <k> #multi(.Expressions) => . ... </k>
 
     // Function hoisting
     rule <to-filter> REST:Statement S:Statement => REST </to-filter>        
