@@ -52,87 +52,89 @@ module YUL-SYNTAX
     syntax Case ::= "case" Literal Block
     syntax Default ::= "default" Block
     syntax ForLoop ::= "for" Block Expression Block Block
-    syntax FunctionCall ::= Identifier "(" FunctionArgs ")" 
-    syntax FunctionArgs ::= List{Expression, ","}               
+    syntax FunctionCall ::= Identifier "(" Expressions ")" 
+    syntax Expressions ::= List{Expression, ","}    // FunctionArgs
+    // syntax FunctionArgs ::= List{Expression, ","}
 
     // FIXME: Find a way to add $ to the start of identifiers without messing up the builtin $PGM variable.
-    syntax Identifier ::= "add"                                 [token]
-                        | "sub"                                 [token]
-                        | "mul"                                 [token]
-                        | "div"                                 [token]
+    syntax Identifier ::= "stop"                                 [token]
+                        | "add"                                  [token]
+                        | "sub"                                  [token]
+                        | "mul"                                  [token]
+                        | "div"                                  [token]
                         | "sdiv"                                 [token]
-                        | "mod"                                 [token]
+                        | "mod"                                  [token]
                         | "smod"                                 [token]
-                        | "exp"                                 [token]
-                        | "not"                                 [token]
-                        | "lt"                                 [token]
-                        | "gt"                                 [token]
-                        | "slt"                                 [token]
-                        | "sgt"                                 [token]
-                        | "eq"                                 [token]
-                        | "iszero"                                 [token]
-                        | "and"                                 [token]
-                        | "or"                                 [token]
-                        | "xor"                                 [token]
+                        | "exp"                                  [token]
+                        | "not"                                  [token]
+                        | "lt"                                   [token]
+                        | "gt"                                   [token]
+                        | "slt"                                  [token]
+                        | "sgt"                                  [token]
+                        | "eq"                                   [token]
+                        | "iszero"                               [token]
+                        | "and"                                  [token]
+                        | "or"                                   [token]
+                        | "xor"                                  [token]
                         | "byte"                                 [token]
-                        | "shl"                                 [token]
-                        | "shr"                                 [token]
-                        | "sar"                                 [token]
-                        | "addmod"                                 [token]
-                        | "mulmod"                                 [token]
-                        | "signextend"                                 [token]
-                        | "keccak256"                                 [token]
-                        | "pc"                                 [token]
-                        | "pop"                                 [token]
-                        | "mload"                                 [token]
-                        | "mstore"                                 [token]
-                        | "mstore8"                                 [token]
-                        | "sload"                                 [token]
-                        | "sstore"                                 [token]
-                        | "msize"                                 [token]
-                        | "gas"                                 [token]
-                        | "address"                                 [token]
-                        | "balance"                                 [token]
-                        | "selfbalance"                                 [token]
-                        | "caller"                                 [token]
-                        | "callvalue"                                 [token]
-                        | "calldataload"                                 [token]
-                        | "calldatasize"                                 [token]
-                        | "calldatacopy"                                 [token]
-                        | "codesize"                                 [token]
-                        | "codecopy"                                 [token]
-                        | "extcodesize"                                 [token]
-                        | "extcodecopy"                                 [token]
-                        | "returndatasize"                                 [token]
-                        | "returndatacopy"                                 [token]
-                        | "extcodehash"                                 [token]
-                        | "create"                                 [token]
-                        | "create2"                                 [token]
+                        | "shl"                                  [token]
+                        | "shr"                                  [token]
+                        | "sar"                                  [token]
+                        | "addmod"                               [token]
+                        | "mulmod"                               [token]
+                        | "signextend"                           [token]
+                        | "keccak256"                            [token]
+                        | "pc"                                   [token]
+                        | "pop"                                  [token]
+                        | "mload"                                [token]
+                        | "mstore"                               [token]
+                        | "mstore8"                              [token]
+                        | "sload"                                [token]
+                        | "sstore"                               [token]
+                        | "msize"                                [token]
+                        | "gas"                                  [token]
+                        | "address"                              [token]
+                        | "balance"                              [token]
+                        | "selfbalance"                          [token]
+                        | "caller"                               [token]
+                        | "callvalue"                            [token]
+                        | "calldataload"                         [token]
+                        | "calldatasize"                         [token]
+                        | "calldatacopy"                         [token]
+                        | "codesize"                             [token]
+                        | "codecopy"                             [token]
+                        | "extcodesize"                          [token]
+                        | "extcodecopy"                          [token]
+                        | "returndatasize"                       [token]
+                        | "returndatacopy"                       [token]
+                        | "extcodehash"                          [token]
+                        | "create"                               [token]
+                        | "create2"                              [token]
                         | "call"                                 [token]
-                        | "callcode"                                 [token]
-                        | "delegatecall"                                 [token]
-                        | "staticcall"                                 [token]
-                        | "return"                                 [token]
-                        | "revert"                                 [token]
-                        | "selfdestruct"                                 [token]
-                        | "invalid"                                 [token]
+                        | "callcode"                             [token]
+                        | "delegatecall"                         [token]
+                        | "staticcall"                           [token]
+                        | "return"                               [token]
+                        | "revert"                               [token]
+                        | "selfdestruct"                         [token]
+                        | "invalid"                              [token]
                         | "log0"                                 [token]
                         | "log1"                                 [token]
                         | "log2"                                 [token]
                         | "log3"                                 [token]
                         | "log4"                                 [token]
-                        | "chainid"                                 [token]
-                        | "basefee"                                 [token]
-                        | "origin"                                 [token]
-                        | "gasprice"                                 [token]
-                        | "blockhash"                                 [token]
-                        | "coinbase"                                 [token]
-                        | "timestamp"                                 [token]
-                        | "number"                                 [token]
-                        | "difficulty"                                 [token]
-                        | "prevrandao"                                 [token]
-                        | "gaslimit"                                 [token]
-                        | r"[a-zA-Z_][a-zA-Z_$0-9.]*"           [token]
+                        | "chainid"                              [token]
+                        | "basefee"                              [token]
+                        | "origin"                               [token]
+                        | "gasprice"                             [token]
+                        | "blockhash"                            [token]
+                        | "coinbase"                             [token]
+                        | "timestamp"                            [token]
+                        | "number"                               [token]
+                        | "difficulty"                           [token]
+                        | "prevrandao"                           [token]
+                        | "gaslimit"                             [token]
+                        | r"[a-zA-Z_][a-zA-Z_$0-9.]*"            [token]
     syntax IdentifierNeList ::= NeList{Identifier, ","}
     syntax TypeName ::= Identifier
     syntax TypedIdentifier ::= Identifier
@@ -178,24 +180,27 @@ module YUL
     imports INT
     imports YUL-SYNTAX
 
-    syntax Expressions ::= List{Expression, ""}
     syntax KResult ::= Int
                      | #multi(Expressions)
-    syntax KItem ::= #envRestore(Map)
+    syntax KItem ::= #envRestore(Map, Map)
                    | "#start"
                    | #letBind(Identifier, Expression)   [strict(2)]
                    | #bind(Identifier, Expression)      [strict(2)]
                    | #functionCall(Identifier) 
-                   | #toEvalArg(Expression)             [strict]
+                   | #evalArg(Expression)             [strict]
                    | #hoist(FunctionDefinition)
     syntax RealAssignment ::= Assignment
-                            | IdentifierNeList ":=" "#multi" "(" Expressions ")"      [strict(2)]
+                            | IdentifierNeList ":=" "#multi" "(" Expressions ")"
     syntax RealVariableDeclaration ::= VariableDeclaration
-                                     | "let" TypedIdentifierNeList ":=" "#multi" "(" Expressions ")"      [strict(2)]
+                                     | "let" TypedIdentifierNeList ":=" "#multi" "(" Expressions ")"
 
     configuration <T>
         <k> #start ~> $PGM:Pgm </k>
-        <env> .Map </env>
+        <env>
+            <vars> .Map </vars>
+            <funcs> .Map </funcs>
+            <reserved> .Map </reserved>
+        </env>
         <store> .Map </store>
         <evaluation>
             <fn-args> . </fn-args>
@@ -203,6 +208,7 @@ module YUL
                 <to-filter> . </to-filter>
                 <filtered> .List </filtered>
             </hoisting>
+            <return> .List </return>
         </evaluation>
     </T>
 
@@ -216,40 +222,42 @@ module YUL
 
     rule <k> { S:Statement } => . ... </k>
          <to-filter> . => S </to-filter>
-         <filtered> .List => ListItem(#envRestore(ENV)) ... </filtered>
-         <env> ENV </env>                                               [priority(0)]
+         <filtered> .List => ListItem(#envRestore(VARS, FUNCS)) ... </filtered>
+         <vars> VARS </vars>
+         <funcs> FUNCS </funcs>                                         [priority(0)]
 
-    rule <k> . => S </k>
+    rule <k> . => S ... </k>
          <to-filter> . </to-filter>
-         <filtered> ListItem(S) => .List ... </filtered>                [priority(250)]
+         <filtered> ... ListItem(S) => .List </filtered>                [priority(0)]
 
     rule <k> ID:Identifier => VAL ... </k>
-         <env> ... ID |-> L ... </env>
+         <vars> ... ID |-> L ... </vars> 
          <store> ... L |-> VAL:Int ... </store>
 
     rule <k> let ID , IDS:TypedIdentifierNeList => #letBind(ID, 0) ~> let IDS ... </k>
 
     rule <k> let .TypedIdentifierNeList => . ... </k>
 
-    rule <k> let ID , IDS:TypedIdentifierNeList := #multi(E:Expression REST) => #letBind(ID, E) ~> let IDS := #multi(REST) ... </k>
+    rule <k> let ID , IDS:TypedIdentifierNeList := #multi(E:Expression, REST) => #letBind(ID, E) ~> let IDS := #multi(REST) ... </k>
     rule <k> let .TypedIdentifierNeList := #multi(.Expressions) => . ... </k>
     rule <k> let ID , .TypedIdentifierNeList := E:Expression => #letBind(ID, E) ... </k>
 
-    rule <k> ID, IDS:IdentifierNeList := #multi(E:Expression REST) => #bind(ID, E) ~> IDS := #multi(REST) ... </k>
+    rule <k> ID, IDS:IdentifierNeList := #multi(E:Expression, REST) => #bind(ID, E) ~> IDS := #multi(REST) ... </k>
     rule <k> .IdentifierNeList := #multi(.Expressions) => . ... </k>
     rule <k> ID, .IdentifierNeList := E:Expression => #bind(ID, E) ... </k>
 
     rule <k> #letBind(ID, VAL:Int) => . ... </k>
-         <env> ENV:Map => ENV[ID <- !L:Int] </env>
+         <vars> ENV:Map => ENV[ID <- !L:Int] </vars>
          <store> ... .Map => !L |-> VAL ... </store>        
         when notBool(ID in_keys(ENV))
 
     rule <k> #bind(ID, VAL:Int) => . ... </k>
-         <env> ... ID |-> L ... </env>
+         <vars> ... ID |-> L ... </vars>
          <store> STORE => STORE[L <- VAL] </store>
 
-    rule <k> #envRestore(ENV) => . ... </k>
-         <env> _ => ENV </env>
+    rule <k> #envRestore(VARS, FUNCS) => . ... </k>
+         <vars> _ => VARS </vars>
+         <funcs> _ => FUNCS </funcs>
 
     // If
     rule <k> if 0 _ => . ... </k>
@@ -260,18 +268,20 @@ module YUL
     rule <k> for { } COND POST BODY => if COND { BODY POST for { } COND POST BODY } ... </k>    [structural]
 
     // Function execution
-    rule <k> FUN:Identifier ( ARGS:FunctionArgs ) => ARGS ~> #functionCall(FUN) ... </k>
-         <fn-args> K => .FunctionArgs ~> K </fn-args>
+    rule <k> FUN:Identifier ( ARGS:Expressions ) => ARGS ~> #functionCall(FUN) ... </k>
+         <fn-args> K => .Expressions ~> K </fn-args>
 
     // Arguments are evaluated from right to left.
-    rule <k> ARG:Expression , ARGS:FunctionArgs => ARGS ~> #toEvalArg(ARG) ... </k>
+    rule <k> ARG:Expression , ARGS:Expressions => ARGS ~> #evalArg(ARG) ... </k>
 
-    rule <k> .FunctionArgs => . ... </k>
+    rule <k> .Expressions => . ... </k>
     
-    rule <k> #toEvalArg(ARG) => . ... </k>
-         <fn-args> ARGS:FunctionArgs => ARG, ARGS ... </fn-args>
+    rule <k> #evalArg(ARG) => . ... </k>
+         <fn-args> ARGS:Expressions => ARG, ARGS ... </fn-args>
 
     // TODO: Check if these need to wrap around.
+    rule <k> #functionCall(stop) ~> _ => . </k>
+         <fn-args> .Expressions => . ... </fn-args>
     rule <k> #functionCall(add) => I1 +Int I2 ... </k>
          <fn-args> I1:Int, I2:Int => . ... </fn-args>
     rule <k> #functionCall(sub) => I1 -Int I2 ... </k>
@@ -280,6 +290,70 @@ module YUL
          <fn-args> I1:Int, I2:Int => . ... </fn-args>
     rule <k> #functionCall(div) => I1 /Int I2 ... </k>
          <fn-args> I1:Int, I2:Int => . ... </fn-args>
+    // TODO: sdiv
+    rule <k> #functionCall(mod) => I1 %Int I2 ... </k>
+         <fn-args> I1:Int, I2:Int => . ... </fn-args>
+    // TODO: smod
+    // TODO: exp
+    // TODO: not
+    rule <k> #functionCall(lt) => 1 ... </k>
+         <fn-args> I1:Int, I2:Int => . ... </fn-args>
+        when I1 <Int I2
+    rule <k> #functionCall(lt) => 0 ... </k>
+         <fn-args> _:Int, _:Int => . ... </fn-args>   [owise]
+    rule <k> #functionCall(gt) => 1 ... </k>
+         <fn-args> I1:Int, I2:Int => . ... </fn-args>
+        when I1 >Int I2
+    rule <k> #functionCall(gt) => 0 ... </k>
+         <fn-args> _:Int, _:Int => . ... </fn-args>   [owise]
+    // TODO: slt
+    // TODO: sgt
+    rule <k> #functionCall(eq) => 1 ... </k>
+         <fn-args> I1:Int, I2:Int => . ... </fn-args>
+        when I1 ==Int I2
+    rule <k> #functionCall(eq) => 0 ... </k>
+         <fn-args> _:Int, _:Int => . ... </fn-args>   [owise]
+    rule <k> #functionCall(iszero) => 1 ... </k>
+         <fn-args> I:Int, .Expressions => . ... </fn-args>
+        when I ==Int 0
+    rule <k> #functionCall(iszero) => 0 ... </k>
+         <fn-args> _:Int, .Expressions => . ... </fn-args>   [owise]
+
+    // TODO: Shadowing is disallowed, i.e. you cannot declare an identifier at a point where another identifier with the same name is 
+    // also visible, even if it is not possible to reference it because it was declared outside the current function.
+    syntax KItem ::= #toReturn(TypedIdentifierNeList)
+                   | #evalReturn(Expression)            [strict]
+                   | "#fetchReturns"
+                   | #argBind(TypedIdentifierList, Expressions)
+                   | #prepareUserFunc(TypedIdentifierList, Expressions, Block, TypedIdentifierNeList)
+
+    rule <k> #functionCall(ID:Identifier) => #prepareUserFunc(PARAMS, ARGS, BODY, .TypedIdentifierNeList) ... </k>
+         <fn-args> ARGS:Expressions => . ... </fn-args>
+         <funcs> ... ID |-> L ... </funcs>
+         <store> ... L |-> (function ID ( PARAMS ) BODY) ... </store>
+
+    rule <k> #functionCall(ID:Identifier) => #prepareUserFunc(PARAMS, ARGS, BODY, RETURNS) ... </k>
+         <fn-args> ARGS:Expressions => . ... </fn-args>
+         <funcs> ... ID |-> L ... </funcs>
+         <store> ... L |-> (function ID ( PARAMS ) -> RETURNS BODY) ... </store>
+
+    rule <k> #prepareUserFunc(PARAMS, ARGS, BODY, RETURNS) => #argBind(PARAMS, ARGS) ~> let RETURNS ~> BODY ~> #toReturn(RETURNS) ~> #envRestore(VARS, FUNCS) ... </k>
+         <funcs> FUNCS </funcs>
+         <vars> VARS => .Map </vars>
+
+    rule <k> #argBind(ID:Identifier, PARAMS:TypedIdentifierList, VAL:Expression, ARGS:Expressions) => let ID := VAL ~> #argBind(PARAMS, ARGS) ... </k> 
+    rule <k> #argBind(.TypedIdentifierList, .Expressions) => . ... </k>
+
+    rule <k> #toReturn(.TypedIdentifierNeList) => #fetchReturns ~> #multi(.Expressions) ... </k>
+    rule <k> #toReturn(ID, REST) => #evalReturn(ID) ~> #toReturn(REST) ... </k>
+    rule <k> #evalReturn(VAL) => . ... </k>
+         <return> ... .List => ListItem(VAL) </return>
+    rule <k> #fetchReturns ~> #multi(RETURNED) => #fetchReturns ~> #multi(VAL, RETURNED) ... </k>
+         <return> ... ListItem(VAL) => .List </return>
+    rule <k> #fetchReturns ~> #multi(EXPRS) ~> #envRestore(VARS, FUNCS) => #envRestore(VARS, FUNCS) ~> #multi(EXPRS) ... </k>
+         <return> .List </return>
+
+    rule <k> #multi(.Expressions) => . ... </k>
 
     // Function hoisting
     rule <to-filter> REST:Statement S:Statement => REST </to-filter>        
@@ -295,10 +369,10 @@ module YUL
 
     // TODO: Prevent shadowing.
     rule <to-filter> #hoist(function ID ( PARAMS ) -> RETURNS BLOCK) => . ... </to-filter>
-         <env> ENV => ENV[ID <- !L:Int] </env>
+         <funcs> ENV => ENV[ID <- !L:Int] </funcs>
          <store> ... .Map => !L |-> (function ID ( PARAMS ) -> RETURNS BLOCK) ... </store>
 
     rule <to-filter> #hoist(function ID ( PARAMS ) BLOCK) => . ... </to-filter>
-         <env> ENV => ENV[ID <- !L:Int] </env>
+         <funcs> ENV => ENV[ID <- !L:Int] </funcs>
          <store> ... .Map => !L |-> (function ID ( PARAMS ) BLOCK) ... </store>
 endmodule
