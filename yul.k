@@ -199,22 +199,26 @@ module YUL
                    | #argBind(TypedIdentifierList, Expressions)
                    | #prepareUserFunc(TypedIdentifierList, Expressions, Block, TypedIdentifierNeList)
                    | #syntaxError(String)
+                   | #endFor(ForLoop)
+                   | #evalForCond(Expression)           [strict]
     syntax RealStuff ::= Expression
                        | Multi
     syntax Multi ::= #multi(Expressions)
     syntax RealVariableDeclaration ::= "#let" TypedIdentifierNeList
                                      | "#let" TypedIdentifierNeList ":=" "#realStuff" "(" RealStuff ")"             [strict(2)]
     syntax RealAssignment ::= "#assign" IdentifierNeList ":=" "#realStuff" "(" RealStuff ")"                      [strict(2)]
-
+    syntax RealFor ::= #for(Expression, Block, Block)
     syntax AllowLoopControl ::= #allowLoopControlTop(Pgm)
                               | #allowLoopControl(Bool, Statement)
 
+    // TODO: Do another pass, similar to #allowLoopControl, to ensure shadowing is not permitted.
+    // i.e. "you cannot declare an identifier at a point where another identifier with the same name is 
+    // also visible, even if it is not possible to reference it because it was declared outside the current function."
     configuration <T>
         <k> #allowLoopControlTop($PGM) ~> #start ~> $PGM:Pgm </k>
         <env>
             <vars> .Map </vars>
             <funcs> .Map </funcs>
-            <reserved> .Map </reserved>
         </env>
         <store> .Map </store>
         <evaluation>
@@ -232,9 +236,9 @@ module YUL
     rule <k> #allowLoopControl(_, { }) => . ... </k>
     rule <k> #allowLoopControl(B, { S }) => #allowLoopControl(B, S) ... </k>
     rule <k> #allowLoopControl(B, S:Statement REST:Statement) => #allowLoopControl(B, S) ~> #allowLoopControl(B, REST) ... </k>
-    rule <k> #allowLoopControl(_, function ID ( PARAMS ) BODY) => #allowLoopControl(false, BODY) ... </k>
-    rule <k> #allowLoopControl(_, function ID ( PARAMS ) -> RETURNS BODY) => #allowLoopControl(false, BODY) ... </k>
-    rule <k> #allowLoopControl(_, for INIT COND POST BODY) => #allowLoopControl(false, INIT) ~> #allowLoopControl(false, POST) ~> #allowLoopControl(true, BODY) ... </k>
+    rule <k> #allowLoopControl(_, function _ ( _ ) BODY) => #allowLoopControl(false, BODY) ... </k>
+    rule <k> #allowLoopControl(_, function _ ( _ ) -> _ BODY) => #allowLoopControl(false, BODY) ... </k>
+    rule <k> #allowLoopControl(_, for INIT _ POST BODY) => #allowLoopControl(false, INIT) ~> #allowLoopControl(false, POST) ~> #allowLoopControl(true, BODY) ... </k>
     rule <k> #allowLoopControl(B, if _ BLOCK) => #allowLoopControl(B, BLOCK) ... </k>
     rule <k> #allowLoopControl(B, switch EXPR case _ BLOCK REST:Cases) => #allowLoopControl(B, BLOCK) ~> #allowLoopControl(B, switch EXPR REST) ... </k>
     rule <k> #allowLoopControl(B, switch EXPR case _ BLOCK REST:Cases DEFAULT:Default) => #allowLoopControl(B, BLOCK) ~> #allowLoopControl(B, switch EXPR REST DEFAULT) ... </k>
@@ -273,18 +277,28 @@ module YUL
     rule <k> if _ BLOCK => BLOCK ... </k>
          <to-filter> . </to-filter>         [owise]
 
-    syntax KItem ::= #endFor(ForLoop)
+    rule <k> for { S } COND POST BODY => S ~> #for(COND, POST, BODY) ~> #envRestore(VARS, FUNCS) ~> #endFor(for { } COND POST BODY) ... </k>
+         <vars> VARS </vars>
+         <funcs> FUNCS </funcs>
+         <to-filter> . </to-filter>                                                             [structural]
+    rule <k> for { } COND POST BODY => #for(COND, POST, BODY) ~> #envRestore(VARS, FUNCS) ~> #endFor(for { } COND POST BODY) ... </k>
+         <vars> VARS </vars>
+         <funcs> FUNCS </funcs>
+         <to-filter> . </to-filter>                                                             [structural]
 
-    rule <k> for { S } COND POST BODY => { S for { } COND POST BODY } ~> #endFor(for { } COND POST BODY) ... </k>
-         <to-filter> . </to-filter>                                                             [structural]
-    // FIXME: This doesn't append #endFor so it's broken
-    rule <k> (for { } COND POST BODY) #as FOR:ForLoop => if COND { BODY POST FOR } ... </k>
-         <to-filter> . </to-filter>                                                             [structural]
+    rule <k> #for(COND, _, _) #as FOR:RealFor => #evalForCond(COND) ~> FOR ... </k>
+         <to-filter> . </to-filter>
+
+    rule <k> #evalForCond(EVALEDCOND) ~> #for(COND, POST, BODY) => BODY ~> POST ~> #for(COND, POST, BODY) ... </k>
+         <to-filter> . </to-filter>
+        requires #word2Bool(EVALEDCOND)
+
+    rule <k> #evalForCond(_) ~> #for(_, _, _) => . ... </k>
+         <to-filter> . </to-filter>                                                             [owise]
 
     rule <k> #endFor(_) => . ... </k>
          <to-filter> . </to-filter>                                                             [structural]
 
-    // FIXME: Work only for the inner-most for body.
     rule <k> break ~> #envRestore(VARS, FUNCS) ~> #endFor(_) => #envRestore(VARS, FUNCS) ... </k>
          <to-filter> . </to-filter>     [structural]
     rule <k> break ~> _:KItem => break ... </k>
@@ -493,8 +507,6 @@ module YUL
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
          <to-filter> . </to-filter>
 
-    // TODO: Shadowing is disallowed, i.e. you cannot declare an identifier at a point where another identifier with the same name is 
-    // also visible, even if it is not possible to reference it because it was declared outside the current function.
 
     rule <k> #functionCall(ID:Identifier) => #prepareUserFunc(PARAMS, ARGS, BODY, .TypedIdentifierNeList) ... </k>
          <fn-args> ARGS:Expressions => . ... </fn-args>
