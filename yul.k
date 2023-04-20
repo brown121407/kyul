@@ -34,6 +34,7 @@ module YUL-SYNTAX
                        | "break"
                        | "continue"
                        | "leave"
+                       | "#debug"
                        | Statement Statement [left]
 
     syntax FunctionDefinition ::= "function" Identifier "(" TypedIdentifierList ")" Block
@@ -255,15 +256,18 @@ module YUL
     rule <k> #assign ID, .IdentifierNeList := #realStuff(E:Expression) => #bind(ID, E) ... </k>
 
     rule <k> #letBind(ID, VAL:Int) => . ... </k>
-         <vars> ENV:Map => ENV[ID <- !L:Int] </vars>
-         <store> ... .Map => !L |-> VAL ... </store>        
-        when notBool(ID in_keys(ENV))
+         <vars> VARS:Map => VARS[ID <- !L:Int] </vars>
+         <store> ... .Map => !L |-> VAL ... </store>  
+         <funcs> FUNCS </funcs>      
+        when (notBool (ID in_keys(VARS))) andBool (notBool (ID in_keys(FUNCS)))
 
     rule <k> #bind(ID, VAL:Int) => . ... </k>
          <vars> ... ID |-> L ... </vars>
          <store> STORE => STORE[L <- VAL] </store>
 
+    // TODO: Do I need to use <to-filter> . </to-filter> everywhere??
     rule <k> #envRestore(VARS, FUNCS) => . ... </k>
+         <to-filter> . </to-filter>
          <vars> _ => VARS </vars>
          <funcs> _ => FUNCS </funcs>
 
@@ -375,21 +379,24 @@ module YUL
     // Function hoisting
     rule <to-filter> REST:Statement S:Statement => REST </to-filter>        
          <filtered> .List => ListItem(S) ... </filtered>                
-        when notBool isFunctionDefinition(S)                            [priority(0)]
+        when notBool isFunctionDefinition(S)                                                    [priority(0)]
         
     rule <to-filter> S:Statement => . </to-filter>                      
          <filtered> .List => ListItem(S) ... </filtered>
-        when notBool isFunctionDefinition(S)
+        when notBool isFunctionDefinition(S)                                                    [priority(4)]
 
     rule <to-filter> REST:Statement FD:FunctionDefinition => #hoist(FD) ~> REST </to-filter>    [priority(1)]
     rule <to-filter> FD:FunctionDefinition => #hoist(FD) </to-filter>                           [priority(2)]
 
-    // TODO: Prevent shadowing.
     rule <to-filter> #hoist(function ID ( PARAMS ) -> RETURNS BLOCK) => . ... </to-filter>
-         <funcs> ENV => ENV[ID <- !L:Int] </funcs>
+         <funcs> FUNCS => FUNCS[ID <- !L:Int] </funcs>
          <store> ... .Map => !L |-> (function ID ( PARAMS ) -> RETURNS BLOCK) ... </store>
+         <vars> VARS </vars>
+        when (notBool (ID in_keys(FUNCS))) andBool (notBool (ID in_keys(VARS)))
 
     rule <to-filter> #hoist(function ID ( PARAMS ) BLOCK) => . ... </to-filter>
-         <funcs> ENV => ENV[ID <- !L:Int] </funcs>
+         <funcs> FUNCS => FUNCS[ID <- !L:Int] </funcs>
          <store> ... .Map => !L |-> (function ID ( PARAMS ) BLOCK) ... </store>
+         <vars> VARS </vars>
+        when (notBool (ID in_keys(FUNCS))) andBool (notBool (ID in_keys(VARS)))
 endmodule
