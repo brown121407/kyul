@@ -198,6 +198,7 @@ module YUL
                    | "#fetchReturns"
                    | #argBind(TypedIdentifierList, Expressions)
                    | #prepareUserFunc(TypedIdentifierList, Expressions, Block, TypedIdentifierNeList)
+                   | #syntaxError(String)
     syntax RealStuff ::= Expression
                        | Multi
     syntax Multi ::= #multi(Expressions)
@@ -205,8 +206,11 @@ module YUL
                                      | "#let" TypedIdentifierNeList ":=" "#realStuff" "(" RealStuff ")"             [strict(2)]
     syntax RealAssignment ::= "#assign" IdentifierNeList ":=" "#realStuff" "(" RealStuff ")"                      [strict(2)]
 
+    syntax AllowLoopControl ::= #allowLoopControlTop(Pgm)
+                              | #allowLoopControl(Bool, Statement)
+
     configuration <T>
-        <k> #start ~> $PGM:Pgm </k>
+        <k> #allowLoopControlTop($PGM) ~> #start ~> $PGM:Pgm </k>
         <env>
             <vars> .Map </vars>
             <funcs> .Map </funcs>
@@ -222,6 +226,24 @@ module YUL
             <return> .List </return>
         </evaluation>
     </T>
+
+    rule <k> #allowLoopControlTop(B:Block) => #allowLoopControl(false, B) ... </k>
+
+    rule <k> #allowLoopControl(_, { }) => . ... </k>
+    rule <k> #allowLoopControl(B, { S }) => #allowLoopControl(B, S) ... </k>
+    rule <k> #allowLoopControl(B, S:Statement REST:Statement) => #allowLoopControl(B, S) ~> #allowLoopControl(B, REST) ... </k>
+    rule <k> #allowLoopControl(_, function ID ( PARAMS ) BODY) => #allowLoopControl(false, BODY) ... </k>
+    rule <k> #allowLoopControl(_, function ID ( PARAMS ) -> RETURNS BODY) => #allowLoopControl(false, BODY) ... </k>
+    rule <k> #allowLoopControl(_, for INIT COND POST BODY) => #allowLoopControl(false, INIT) ~> #allowLoopControl(false, POST) ~> #allowLoopControl(true, BODY) ... </k>
+    rule <k> #allowLoopControl(B, if _ BLOCK) => #allowLoopControl(B, BLOCK) ... </k>
+    rule <k> #allowLoopControl(B, switch EXPR case _ BLOCK REST:Cases) => #allowLoopControl(B, BLOCK) ~> #allowLoopControl(B, switch EXPR REST) ... </k>
+    rule <k> #allowLoopControl(B, switch EXPR case _ BLOCK REST:Cases DEFAULT:Default) => #allowLoopControl(B, BLOCK) ~> #allowLoopControl(B, switch EXPR REST DEFAULT) ... </k>
+    rule <k> #allowLoopControl(_, switch _ .Cases) => . ... </k>
+    rule <k> #allowLoopControl(B, switch _ .Cases default BLOCK) => #allowLoopControl(B, BLOCK) ... </k>
+    rule <k> #allowLoopControl(B, switch _ default BLOCK) => #allowLoopControl(B, BLOCK) ... </k>
+    rule <k> #allowLoopControl(false, break) => #syntaxError("break is only allowed in a for loop's body.") ... </k>
+    rule <k> #allowLoopControl(false, continue) => #syntaxError("continue is only allowed in a for loop's body.") ... </k>
+    rule <k> #allowLoopControl(_, _) => . ... </k>  [owise]
 
     rule <k> #start ~> { } => . </k>
 
@@ -255,6 +277,7 @@ module YUL
 
     rule <k> for { S } COND POST BODY => { S for { } COND POST BODY } ~> #endFor(for { } COND POST BODY) ... </k>
          <to-filter> . </to-filter>                                                             [structural]
+    // FIXME: This doesn't append #endFor so it's broken
     rule <k> (for { } COND POST BODY) #as FOR:ForLoop => if COND { BODY POST FOR } ... </k>
          <to-filter> . </to-filter>                                                             [structural]
 
