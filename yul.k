@@ -251,10 +251,28 @@ module YUL
     rule <k> if _ BLOCK => BLOCK ... </k>
          <to-filter> . </to-filter>         [owise]
 
-    rule <k> for { S } COND POST BODY => { S for { } COND POST BODY } ... </k>
+    syntax KItem ::= #endFor(ForLoop)
+
+    rule <k> for { S } COND POST BODY => { S for { } COND POST BODY } ~> #endFor(for { } COND POST BODY) ... </k>
          <to-filter> . </to-filter>                                                             [structural]
-    rule <k> for { } COND POST BODY => if COND { BODY POST for { } COND POST BODY } ... </k>
+    rule <k> (for { } COND POST BODY) #as FOR:ForLoop => if COND { BODY POST FOR } ... </k>
          <to-filter> . </to-filter>                                                             [structural]
+
+    rule <k> #endFor(_) => . ... </k>
+         <to-filter> . </to-filter>                                                             [structural]
+
+    // FIXME: Work only for the inner-most for body.
+    rule <k> break ~> #envRestore(VARS, FUNCS) ~> #endFor(_) => #envRestore(VARS, FUNCS) ... </k>
+         <to-filter> . </to-filter>     [structural]
+    rule <k> break ~> _:KItem => break ... </k>
+         <to-filter> . </to-filter>     [priority(51), structural]
+
+    rule <k> continue ~> #envRestore(VARS, FUNCS) ~> #endFor((for { } _ POST _) #as LOOP) => POST ~> LOOP ~> #envRestore(VARS, FUNCS) ~> #endFor(LOOP) ... </k>
+         <to-filter> . </to-filter>     [structural]
+    rule <k> continue ~> _:KItem => continue ... </k>
+         <to-filter> . </to-filter>     [priority(51), structural]
+
+    // TODO: eval literals (strings, hex numbers, false/true) to Int
 
 
     rule <k> switch EXPR:Int case EXPR BLOCK _:Cases => BLOCK ... </k>
@@ -278,10 +296,6 @@ module YUL
     rule <k> switch _ default BLOCK => BLOCK ... </k>
          <to-filter> . </to-filter>                                                             [structural]
 
-
-    // TODO: break
-    // TODO: continue
-    // TODO: eval literals (strings, hex numbers, false/true) to Int
 
     rule <k> let IDS => #let IDS ... </k>
          <to-filter> . </to-filter>                                     [structural]
@@ -517,6 +531,9 @@ module YUL
 
 
     rule <k> #multi(.Expressions) => . ... </k>
+         <to-filter> . </to-filter>
+    
+    rule <k> #multi(EXPR:Expression, .Expressions) => EXPR ... </k>
          <to-filter> . </to-filter>
 
 
