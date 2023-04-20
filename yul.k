@@ -36,7 +36,6 @@ module YUL-SYNTAX
                        | "break"
                        | "continue"
                        | "leave"
-                       | "#debug"
                        | Statement Statement [left]
 
     syntax FunctionDefinition ::= "function" Identifier "(" TypedIdentifierList ")" Block
@@ -48,11 +47,11 @@ module YUL-SYNTAX
                         | Identifier
                         | Literal                               
     syntax If ::= "if" Expression Block                         [strict(1)]
-    syntax Switch ::= "switch" Expression Cases
-                    | "switch" Expression Cases Default
-                    | "switch" Expression Default
+    syntax Switch ::= "switch" Expression Cases                 [strict(1)]
+                    | "switch" Expression Cases Default         [strict(1)]
+                    | "switch" Expression Default               [strict(1)]
     syntax Cases ::= NeList{Case, ""}
-    syntax Case ::= "case" Literal Block
+    syntax Case ::= "case" Literal Block                        [strict(1)]
     syntax Default ::= "default" Block
     syntax ForLoop ::= "for" Block Expression Block Block
     syntax FunctionCall ::= Identifier "(" Expressions ")" 
@@ -257,6 +256,32 @@ module YUL
     rule <k> for { } COND POST BODY => if COND { BODY POST for { } COND POST BODY } ... </k>
          <to-filter> . </to-filter>                                                             [structural]
 
+
+    rule <k> switch EXPR:Int case EXPR BLOCK _:Cases => BLOCK ... </k>
+         <to-filter> . </to-filter>                                                             [structural]
+
+    rule <k> switch EXPR:Int case EXPR BLOCK _:Cases _:Default => BLOCK ... </k>
+         <to-filter> . </to-filter>                                                             [structural]
+
+    rule <k> switch EXPR:Int case _ _ REST:Cases => switch EXPR REST </k>
+         <to-filter> . </to-filter>                                                             [priority(51), structural]
+
+    rule <k> switch EXPR:Int case _ _ REST:Cases DEFAULT:Default => switch EXPR REST DEFAULT </k>
+         <to-filter> . </to-filter>                                                             [priority(51), structural]
+
+    rule <k> switch _ .Cases => . ... </k>
+         <to-filter> . </to-filter>                                                             [structural]
+
+    rule <k> switch _ .Cases default BLOCK => BLOCK ... </k>
+         <to-filter> . </to-filter>                                                             [structural]
+
+    rule <k> switch _ default BLOCK => BLOCK ... </k>
+         <to-filter> . </to-filter>                                                             [structural]
+
+
+    // TODO: break
+    // TODO: continue
+    // TODO: eval literals (strings, hex numbers, false/true) to Int
 
     rule <k> let IDS => #let IDS ... </k>
          <to-filter> . </to-filter>                                     [structural]
