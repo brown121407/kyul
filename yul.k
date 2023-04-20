@@ -179,7 +179,10 @@ module YUL
     imports MAP
     imports LIST
     imports INT
+    imports SET
     imports WORD
+    imports K-REFLECTION
+    imports STRING
     imports YUL-SYNTAX
 
     syntax KResult ::= Int
@@ -198,9 +201,11 @@ module YUL
                    | "#fetchReturns"
                    | #argBind(TypedIdentifierList, Expressions)
                    | #prepareUserFunc(TypedIdentifierList, Expressions, Block, TypedIdentifierNeList)
-                   | #syntaxError(String)
                    | #endFor(ForLoop)
                    | #evalForCond(Expression)           [strict]
+    syntax Error ::= #error(String)
+                   | #syntaxError(String)
+                   | #declarationError(String)
     syntax RealStuff ::= Expression
                        | Multi
     syntax Multi ::= #multi(Expressions)
@@ -210,12 +215,14 @@ module YUL
     syntax RealFor ::= #for(Expression, Block, Block)
     syntax AllowLoopControl ::= #allowLoopControlTop(Pgm)
                               | #allowLoopControl(Bool, Statement)
+    syntax CheckNames ::= #checkNamesTop(Pgm)
+                        | #checkNames(Statement)
+                        | #checkNamesFunc(TypedIdentifierList, TypedIdentifierNeList, Block)
+                        | "#popBlockNames"
+                        | #reserveName(Identifier)
 
-    // TODO: Do another pass, similar to #allowLoopControl, to ensure shadowing is not permitted.
-    // i.e. "you cannot declare an identifier at a point where another identifier with the same name is 
-    // also visible, even if it is not possible to reference it because it was declared outside the current function."
-    configuration <T>
-        <k> #allowLoopControlTop($PGM) ~> #start ~> $PGM:Pgm </k>
+    configuration <yul>
+        <k> #checkNamesTop($PGM) ~> #allowLoopControlTop($PGM) ~> #start ~> $PGM:Pgm </k>
         <env>
             <vars> .Map </vars>
             <funcs> .Map </funcs>
@@ -229,7 +236,11 @@ module YUL
             </hoisting>
             <return> .List </return>
         </evaluation>
-    </T>
+        <reserved-names>
+            <block-names> .List </block-names>
+            <all-names> .Set </all-names>
+        </reserved-names>
+    </yul>
 
     rule <k> #allowLoopControlTop(B:Block) => #allowLoopControl(false, B) ... </k>
 
@@ -248,6 +259,50 @@ module YUL
     rule <k> #allowLoopControl(false, break) => #syntaxError("break is only allowed in a for loop's body.") ... </k>
     rule <k> #allowLoopControl(false, continue) => #syntaxError("continue is only allowed in a for loop's body.") ... </k>
     rule <k> #allowLoopControl(_, _) => . ... </k>  [owise]
+
+    rule <k> #checkNamesTop(B:Block) => #checkNames(B) ... </k>
+    rule <k> #checkNames({ }) => . ... </k>
+    rule <k> #checkNames({ S }) => #checkNames(S) ~> #popBlockNames ... </k>
+         <block-names> .List => ListItem(.Set) ... </block-names>
+    rule <k> #checkNames(S:Statement REST:Statement) => #checkNames(S) ~> #checkNames(REST) ... </k>
+    rule <k> #checkNames(let ID, IDS:TypedIdentifierNeList) => #reserveName(ID) ~> #checkNames(let IDS) ... </k>
+    rule <k> #checkNames(let ID : _, IDS:TypedIdentifierNeList) => #reserveName(ID) ~> #checkNames(let IDS) ... </k>
+    rule <k> #checkNames(let ID, IDS:TypedIdentifierNeList := _) => #reserveName(ID) ~> #checkNames(let IDS) ... </k>
+    rule <k> #checkNames(let ID : _, IDS:TypedIdentifierNeList := _) => #reserveName(ID) ~> #checkNames(let IDS) ... </k>
+    rule <k> #checkNames(let .TypedIdentifierNeList) => . ... </k>
+    rule <k> #checkNames(function ID ( PARAMS ) BODY) => #reserveName(ID) ~> #checkNamesFunc(PARAMS, .TypedIdentifierNeList, BODY) ~> #popBlockNames ... </k>
+         <block-names> .List => ListItem(.Set) ... </block-names>
+    rule <k> #checkNames(function ID ( PARAMS ) -> RETURNS BODY) => #reserveName(ID) ~> #checkNamesFunc(PARAMS, RETURNS, BODY) ~> #popBlockNames ... </k>
+         <block-names> .List => ListItem(.Set) ... </block-names>
+    rule <k> #checkNames(for INIT _ POST BODY) => #checkNames(INIT) ~> #checkNames(POST) ~> #checkNames(BODY) ... </k>
+    rule <k> #checkNames(if _ BLOCK) => #checkNames(BLOCK) ... </k>
+    rule <k> #checkNames(switch EXPR case _ BLOCK REST:Cases) => #checkNames(BLOCK) ~> #checkNames(switch EXPR REST) ... </k>
+    rule <k> #checkNames(switch EXPR case _ BLOCK REST:Cases DEFAULT:Default) => #checkNames(BLOCK) ~> #checkNames(switch EXPR REST DEFAULT) ... </k>
+    rule <k> #checkNames(switch _ .Cases) => . ... </k>
+    rule <k> #checkNames(switch _ .Cases default BLOCK) => #checkNames(BLOCK) ... </k>
+    rule <k> #checkNames(switch _ default BLOCK) => #checkNames(BLOCK) ... </k>
+    rule <k> #checkNames(_) => . ... </k>   [owise]
+
+    rule <k> #checkNamesFunc(PARAM, PARAMS:TypedIdentifierList, RETURNS, BODY) => #reserveName(PARAM) ~> #checkNamesFunc(PARAMS, RETURNS, BODY) ... </k>
+    rule <k> #checkNamesFunc(PARAM : _, PARAMS:TypedIdentifierList, RETURNS, BODY) => #reserveName(PARAM) ~> #checkNamesFunc(PARAMS, RETURNS, BODY) ... </k>
+    rule <k> #checkNamesFunc(.TypedIdentifierList, RETID, RETURNS:TypedIdentifierNeList, BODY) => #reserveName(RETID) ~> #checkNamesFunc(.TypedIdentifierList, RETURNS, BODY) ... </k>
+    rule <k> #checkNamesFunc(.TypedIdentifierList, RETID : _, RETURNS:TypedIdentifierNeList, BODY) => #reserveName(RETID) ~> #checkNamesFunc(.TypedIdentifierList, RETURNS, BODY) ... </k>
+    rule <k> #checkNamesFunc(.TypedIdentifierList, .TypedIdentifierNeList, BODY) => #checkNames(BODY) ... </k>
+
+    rule <k> #popBlockNames => . ... </k>
+         <reserved-names>
+            <block-names> ListItem(BLOCKNAMES) => .List ... </block-names>
+            <all-names> ALLNAMES => ALLNAMES -Set BLOCKNAMES </all-names>
+         </reserved-names>
+
+    rule <k> #reserveName(ID) => . ... </k> 
+         <reserved-names>
+             <block-names> ListItem(BLOCKNAMES => BLOCKNAMES SetItem(ID)) ...  </block-names>
+             <all-names> ALLNAMES => ALLNAMES SetItem(ID) </all-names>
+         </reserved-names>
+        requires notBool (ID in ALLNAMES)
+
+    rule <k> #reserveName(ID) => #declarationError("Variable name " +String #unparseKORE(ID) +String " already taken in this scope.") ... </k>   [owise]
 
     rule <k> #start ~> { } => . </k>
 
