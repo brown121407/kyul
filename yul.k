@@ -14,6 +14,8 @@ You should have received a copy of the GNU General Public License along with
 this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
+requires "word.k"
+
 module YUL-SYNTAX
     imports BOOL
     imports UNSIGNED-INT-SYNTAX
@@ -178,6 +180,7 @@ module YUL
     imports MAP
     imports LIST
     imports INT
+    imports WORD
     imports YUL-SYNTAX
 
     syntax KResult ::= Int
@@ -337,72 +340,96 @@ module YUL
          <fn-args> ARGS:Expressions => ARG, ARGS ... </fn-args>
          <to-filter> . </to-filter>
 
-    // TODO: Check if these need to wrap around.
+
     rule <k> #functionCall(stop) ~> _ => . </k>
          <fn-args> .Expressions => . ... </fn-args>
          <to-filter> . </to-filter>
 
-    rule <k> #functionCall(add) => I1 +Int I2 ... </k>
-         <fn-args> I1:Int, I2:Int => . ... </fn-args>
+    rule <k> #functionCall(add) => W0 +Word W1 ... </k>
+         <fn-args> W0:Int, W1:Int => . ... </fn-args>
          <to-filter> . </to-filter>
 
-    rule <k> #functionCall(sub) => I1 -Int I2 ... </k>
-         <fn-args> I1:Int, I2:Int => . ... </fn-args>
+    rule <k> #functionCall(sub) => W0 -Word W1 ... </k>
+         <fn-args> W0:Int, W1:Int => . ... </fn-args>
          <to-filter> . </to-filter>
 
-    rule <k> #functionCall(mul) => I1 *Int I2 ... </k>
-         <fn-args> I1:Int, I2:Int => . ... </fn-args>
+    rule <k> #functionCall(mul) => W0 *Word W1 ... </k>
+         <fn-args> W0:Int, W1:Int => . ... </fn-args>
          <to-filter> . </to-filter>
 
-    rule <k> #functionCall(div) => I1 /Int I2 ... </k>
-         <fn-args> I1:Int, I2:Int => . ... </fn-args>
+    rule <k> #functionCall(div) => W0 /Word W1 ... </k>
+         <fn-args> W0:Int, W1:Int => . ... </fn-args>
          <to-filter> . </to-filter>
 
-    // TODO: sdiv
-
-    rule <k> #functionCall(mod) => I1 %Int I2 ... </k>
-         <fn-args> I1:Int, I2:Int => . ... </fn-args>
+    rule <k> #functionCall(sdiv) => W0 /sWord W1 ... </k>
+         <fn-args> W0:Int, W1:Int => . ... </fn-args>
          <to-filter> . </to-filter>
 
-    // TODO: smod
-    // TODO: exp
-    // TODO: not
-
-    rule <k> #functionCall(lt) => 1 ... </k>
-         <fn-args> I1:Int, I2:Int => . ... </fn-args>
+    rule <k> #functionCall(mod) => W0 %Word W1 ... </k>
+         <fn-args> W0:Int, W1:Int => . ... </fn-args>
          <to-filter> . </to-filter>
-        when I1 <Int I2
-    rule <k> #functionCall(lt) => 0 ... </k>
-         <fn-args> _:Int, _:Int => . ... </fn-args>
-         <to-filter> . </to-filter>                         [owise]
 
-    rule <k> #functionCall(gt) => 1 ... </k>
-         <fn-args> I1:Int, I2:Int => . ... </fn-args>
+    rule <k> #functionCall(smod) => W0 %sWord W1 ... </k>
+         <fn-args> W0:Int, W1:Int => . ... </fn-args>
          <to-filter> . </to-filter>
-        when I1 >Int I2
-    rule <k> #functionCall(gt) => 0 ... </k>
-         <fn-args> _:Int, _:Int => . ... </fn-args>
-         <to-filter> . </to-filter>                         [owise]
 
-    // TODO: slt
-    // TODO: sgt
+    rule <k> #functionCall(exp) => W0 ^Word W1 ... </k>
+         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <to-filter> . </to-filter>
     
-    rule <k> #functionCall(eq) => 1 ... </k>
-         <fn-args> I1:Int, I2:Int => . ... </fn-args>
+    rule <k> #functionCall(not) => ~Word W ... </k>
+         <fn-args> W:Int => . ... </fn-args>
          <to-filter> . </to-filter>
-        when I1 ==Int I2
-    rule <k> #functionCall(eq) => 0 ... </k>
-         <fn-args> _:Int, _:Int => . ... </fn-args>   
-         <to-filter> . </to-filter>                         [owise]
 
-    rule <k> #functionCall(iszero) => 1 ... </k>
-         <fn-args> I:Int, .Expressions => . ... </fn-args>
+    rule <k> #functionCall(lt) => W0 <Word W1 ... </k>
+         <fn-args> W0:Int, W1:Int => . ... </fn-args>
          <to-filter> . </to-filter>
-        when I ==Int 0
-    rule <k> #functionCall(iszero) => 0 ... </k>
-         <fn-args> _:Int, .Expressions => . ... </fn-args>
-         <to-filter> . </to-filter>                         [owise]
 
+    rule <k> #functionCall(gt) => W0 >Word W1 ... </k>
+         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <to-filter> . </to-filter>
+
+    rule <k> #functionCall(slt) => W0 s<Word W1 ... </k>
+         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <to-filter> . </to-filter>
+
+    rule <k> #functionCall(sgt) => W0 s>Word W1 ... </k>
+         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <to-filter> . </to-filter>
+    
+    rule <k> #functionCall(eq) => W0 ==Word W1 ... </k>
+         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <to-filter> . </to-filter>
+
+    rule <k> #functionCall(iszero) => W ==Word 0 ... </k>
+         <fn-args> W:Int, .Expressions => . ... </fn-args>
+         <to-filter> . </to-filter>
+
+    rule <k> #functionCall(and) => W0 &Word W1 ... </k>
+         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <to-filter> . </to-filter>
+
+    rule <k> #functionCall(or) => W0 |Word W1 ... </k>
+         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <to-filter> . </to-filter>
+
+    rule <k> #functionCall(xor) => W0 xorWord W1 ... </k>
+         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <to-filter> . </to-filter>
+
+    // TODO: byte
+
+    rule <k> #functionCall(shl) => W0 <<Word W1 ... </k>
+         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <to-filter> . </to-filter>
+
+    rule <k> #functionCall(shr) => W0 >>Word W1 ... </k>
+         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <to-filter> . </to-filter>
+
+    rule <k> #functionCall(sar) => W0 >>sWord W1 ... </k>
+         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <to-filter> . </to-filter>
 
     // TODO: Shadowing is disallowed, i.e. you cannot declare an identifier at a point where another identifier with the same name is 
     // also visible, even if it is not possible to reference it because it was declared outside the current function.
