@@ -191,6 +191,11 @@ module YUL
                    | #evalArg(RealStuff)                [strict]
                    | #hoist(FunctionDefinition)
                    | #realStuff(RealStuff)
+                   | #toReturn(TypedIdentifierNeList)
+                   | #evalReturn(Expression)            [strict]
+                   | "#fetchReturns"
+                   | #argBind(TypedIdentifierList, Expressions)
+                   | #prepareUserFunc(TypedIdentifierList, Expressions, Block, TypedIdentifierNeList)
     syntax RealStuff ::= Expression
                        | Multi
     syntax Multi ::= #multi(Expressions)
@@ -216,13 +221,12 @@ module YUL
         </evaluation>
     </T>
 
-    // Execution
     rule <k> #start ~> { } => . </k>
 
     rule <k> #start ~> { S:Statement } => . </k>
          <to-filter> . => S </to-filter>
 
-    rule <k> { } => . ... </k>
+    rule <k> { } => . ... </k>                                          [structural]
 
     rule <k> { S:Statement } => . ... </k>
          <to-filter> . => S </to-filter>
@@ -240,47 +244,58 @@ module YUL
          <to-filter> . </to-filter>
 
 
-    rule <k> let IDS => #let IDS ... </k>
+    rule <k> if 0 _ => . ... </k>
          <to-filter> . </to-filter>
+    rule <k> if _ BLOCK => BLOCK ... </k>
+         <to-filter> . </to-filter>         [owise]
+
+    rule <k> for { S } COND POST BODY => { S for { } COND POST BODY } ... </k>
+         <to-filter> . </to-filter>                                                             [structural]
+    rule <k> for { } COND POST BODY => if COND { BODY POST for { } COND POST BODY } ... </k>
+         <to-filter> . </to-filter>                                                             [structural]
+
+
+    rule <k> let IDS => #let IDS ... </k>
+         <to-filter> . </to-filter>                                     [structural]
 
     rule <k> let IDS := E => #let IDS := #realStuff(E) ... </k>
-         <to-filter> . </to-filter>
+         <to-filter> . </to-filter>                                     [structural]
 
     rule <k> IDS := E => #assign IDS := #realStuff(E) ... </k>
-         <to-filter> . </to-filter>
+         <to-filter> . </to-filter>                                     [structural]
 
 
     rule <k> #let ID:Identifier : _:TypeName, IDS:TypedIdentifierNeList => #let ID, IDS ... </k>
-         <to-filter> . </to-filter>
+         <to-filter> . </to-filter>                                     [structural]
 
     rule <k> #let ID , IDS:TypedIdentifierNeList => #letBind(ID, 0) ~> #let IDS ... </k>
-         <to-filter> . </to-filter>
+         <to-filter> . </to-filter>                                     [structural]
 
     rule <k> #let .TypedIdentifierNeList => . ... </k>
-         <to-filter> . </to-filter>
+         <to-filter> . </to-filter>                                     [structural]
 
 
     rule <k> #let ID:Identifier : _:TypeName, IDS:TypedIdentifierNeList := #realStuff(RS) => #let ID, IDS := #realStuff(RS) ... </k>
-         <to-filter> . </to-filter>
+         <to-filter> . </to-filter>                                     [structural]
 
     rule <k> #let ID , IDS:TypedIdentifierNeList := #realStuff(#multi(E:Expression, REST)) => #letBind(ID, E) ~> #let IDS := #realStuff(#multi(REST)) ... </k>
-         <to-filter> . </to-filter>
+         <to-filter> . </to-filter>                                     [structural]
 
     rule <k> #let .TypedIdentifierNeList := #realStuff(#multi(.Expressions)) => . ... </k>
-         <to-filter> . </to-filter>
+         <to-filter> . </to-filter>                                     [structural]
 
     rule <k> #let ID , .TypedIdentifierNeList := #realStuff(E:Expression) => #letBind(ID, E) ... </k>
-         <to-filter> . </to-filter>
+         <to-filter> . </to-filter>                                     [structural]
 
 
     rule <k> #assign ID, IDS:IdentifierNeList := #realStuff(#multi(E:Expression, REST)) => #bind(ID, E) ~> #assign IDS := #realStuff(#multi(REST)) ... </k>
-         <to-filter> . </to-filter>
+         <to-filter> . </to-filter>                                     [structural]
 
     rule <k> #assign .IdentifierNeList := #realStuff(#multi(.Expressions)) => . ... </k>
-         <to-filter> . </to-filter>
+         <to-filter> . </to-filter>                                     [structural]
 
     rule <k> #assign ID, .IdentifierNeList := #realStuff(E:Expression) => #bind(ID, E) ... </k>
-         <to-filter> . </to-filter> 
+         <to-filter> . </to-filter>                                     [structural]
 
 
     rule <k> #letBind(ID, VAL:Int) => . ... </k>
@@ -301,23 +316,6 @@ module YUL
          <funcs> _ => FUNCS </funcs>
          <to-filter> . </to-filter>
 
-    rule <k> leave ~> #funcEnd => #funcEnd ... </k>
-         <to-filter> . </to-filter>                                         [priority(51), structural]
-    rule <k> leave ~> _:KItem => leave ... </k>
-         <to-filter> . </to-filter>                                         [priority(52), structural]
-
-    // If
-    rule <k> if 0 _ => . ... </k>
-         <to-filter> . </to-filter>
-    rule <k> if _ BLOCK => BLOCK ... </k>
-         <to-filter> . </to-filter>         [owise]
-
-    // For
-    rule <k> for { S } COND POST BODY => { S for { } COND POST BODY } ... </k>
-         <to-filter> . </to-filter>                                                             [structural]
-    rule <k> for { } COND POST BODY => if COND { BODY POST for { } COND POST BODY } ... </k>
-         <to-filter> . </to-filter>                                                             [structural]
-    
 
     // Function execution
     rule <k> FUN:Identifier ( ARGS:Expressions ) => ARGS ~> #functionCall(FUN) ... </k>
@@ -326,7 +324,7 @@ module YUL
 
     // Arguments are evaluated from right to left.
     rule <k> ARG:Expression , ARGS:Expressions => ARGS ~> #evalArg(ARG) ... </k>
-         <to-filter> . </to-filter>
+         <to-filter> . </to-filter>                                                             [structural]
 
     rule <k> .Expressions => . ... </k>
          <to-filter> . </to-filter>
@@ -343,25 +341,33 @@ module YUL
     rule <k> #functionCall(stop) ~> _ => . </k>
          <fn-args> .Expressions => . ... </fn-args>
          <to-filter> . </to-filter>
+
     rule <k> #functionCall(add) => I1 +Int I2 ... </k>
          <fn-args> I1:Int, I2:Int => . ... </fn-args>
          <to-filter> . </to-filter>
+
     rule <k> #functionCall(sub) => I1 -Int I2 ... </k>
          <fn-args> I1:Int, I2:Int => . ... </fn-args>
          <to-filter> . </to-filter>
+
     rule <k> #functionCall(mul) => I1 *Int I2 ... </k>
          <fn-args> I1:Int, I2:Int => . ... </fn-args>
          <to-filter> . </to-filter>
+
     rule <k> #functionCall(div) => I1 /Int I2 ... </k>
          <fn-args> I1:Int, I2:Int => . ... </fn-args>
          <to-filter> . </to-filter>
+
     // TODO: sdiv
+
     rule <k> #functionCall(mod) => I1 %Int I2 ... </k>
          <fn-args> I1:Int, I2:Int => . ... </fn-args>
          <to-filter> . </to-filter>
+
     // TODO: smod
     // TODO: exp
     // TODO: not
+
     rule <k> #functionCall(lt) => 1 ... </k>
          <fn-args> I1:Int, I2:Int => . ... </fn-args>
          <to-filter> . </to-filter>
@@ -369,6 +375,7 @@ module YUL
     rule <k> #functionCall(lt) => 0 ... </k>
          <fn-args> _:Int, _:Int => . ... </fn-args>
          <to-filter> . </to-filter>                         [owise]
+
     rule <k> #functionCall(gt) => 1 ... </k>
          <fn-args> I1:Int, I2:Int => . ... </fn-args>
          <to-filter> . </to-filter>
@@ -376,8 +383,10 @@ module YUL
     rule <k> #functionCall(gt) => 0 ... </k>
          <fn-args> _:Int, _:Int => . ... </fn-args>
          <to-filter> . </to-filter>                         [owise]
+
     // TODO: slt
     // TODO: sgt
+    
     rule <k> #functionCall(eq) => 1 ... </k>
          <fn-args> I1:Int, I2:Int => . ... </fn-args>
          <to-filter> . </to-filter>
@@ -385,6 +394,7 @@ module YUL
     rule <k> #functionCall(eq) => 0 ... </k>
          <fn-args> _:Int, _:Int => . ... </fn-args>   
          <to-filter> . </to-filter>                         [owise]
+
     rule <k> #functionCall(iszero) => 1 ... </k>
          <fn-args> I:Int, .Expressions => . ... </fn-args>
          <to-filter> . </to-filter>
@@ -393,14 +403,9 @@ module YUL
          <fn-args> _:Int, .Expressions => . ... </fn-args>
          <to-filter> . </to-filter>                         [owise]
 
+
     // TODO: Shadowing is disallowed, i.e. you cannot declare an identifier at a point where another identifier with the same name is 
     // also visible, even if it is not possible to reference it because it was declared outside the current function.
-    syntax KItem ::= #toReturn(TypedIdentifierNeList)
-                   | #evalReturn(Expression)            [strict]
-                   | "#fetchReturns"
-                   | #argBind(TypedIdentifierList, Expressions)
-                   | #prepareUserFunc(TypedIdentifierList, Expressions, Block, TypedIdentifierNeList)
-
 
     rule <k> #functionCall(ID:Identifier) => #prepareUserFunc(PARAMS, ARGS, BODY, .TypedIdentifierNeList) ... </k>
          <fn-args> ARGS:Expressions => . ... </fn-args>
@@ -463,6 +468,13 @@ module YUL
          <to-filter> . </to-filter>
 
 
+    rule <k> leave ~> #funcEnd => #funcEnd ... </k>
+         <to-filter> . </to-filter>                                         [priority(51), structural]
+
+    rule <k> leave ~> _:KItem => leave ... </k>
+         <to-filter> . </to-filter>                                         [priority(52), structural]
+
+
     // Function hoisting
     rule <to-filter> REST:Statement S:Statement => REST </to-filter>        
          <filtered> .List => ListItem(S) ... </filtered>                
@@ -472,8 +484,8 @@ module YUL
          <filtered> .List => ListItem(S) ... </filtered>
         when notBool isFunctionDefinition(S)                                                    [priority(4)]
 
-    rule <to-filter> REST:Statement FD:FunctionDefinition => #hoist(FD) ~> REST </to-filter>    [priority(1)]
-    rule <to-filter> FD:FunctionDefinition => #hoist(FD) </to-filter>                           [priority(2)]
+    rule <to-filter> REST:Statement FD:FunctionDefinition => #hoist(FD) ~> REST </to-filter>    [priority(1), structural]
+    rule <to-filter> FD:FunctionDefinition => #hoist(FD) </to-filter>                           [priority(2), structural]
 
     rule <to-filter> #hoist(function ID ( PARAMS ) -> RETURNS BLOCK) => . ... </to-filter>
          <funcs> FUNCS => FUNCS[ID <- !L:Int] </funcs>
