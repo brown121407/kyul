@@ -17,7 +17,6 @@ this program. If not, see <https://www.gnu.org/licenses/>.
 requires "word.k"
 
 module YUL-SYNTAX
-    imports BOOL
     imports UNSIGNED-INT-SYNTAX
     imports STRING-SYNTAX
 
@@ -30,6 +29,9 @@ module YUL-SYNTAX
                        | VariableDeclaration
                        | Assignment
                        | If
+                       // FIXME: Expressions that are also statements (i.e. at the block level) have to evaluate to zero values.
+                       // This means that Expression here is restricted to FunctionCall, since that's the only thing that can evaluate
+                       // to zero values.
                        | Expression
                        | Switch
                        | ForLoop
@@ -45,7 +47,7 @@ module YUL-SYNTAX
     syntax Assignment ::= IdentifierNeList ":=" Expression
     syntax Expression ::= FunctionCall
                         | Identifier
-                        | Literal                               
+                        | Literal
     syntax If ::= "if" Expression Block                         [strict(1)]
     syntax Switch ::= "switch" Expression Cases                 [strict(1)]
                     | "switch" Expression Cases Default         [strict(1)]
@@ -149,6 +151,7 @@ module YUL-SYNTAX
                         | TrueLiteral
                         | FalseLiteral
     syntax Literal ::= LiteralUntyped
+                     // TODO: Typed Literals
                      | LiteralUntyped ":" TypeName
 
     syntax NumberLiteral ::= HexNumber | DecimalNumber
@@ -183,6 +186,7 @@ module YUL
     imports WORD
     imports K-REFLECTION
     imports STRING
+    imports BOOL
     imports YUL-SYNTAX
 
     syntax KResult ::= Int
@@ -213,6 +217,7 @@ module YUL
                                      | "#let" TypedIdentifierNeList ":=" "#realStuff" "(" RealStuff ")"             [strict(2)]
     syntax RealAssignment ::= "#assign" IdentifierNeList ":=" "#realStuff" "(" RealStuff ")"                      [strict(2)]
     syntax RealFor ::= #for(Expression, Block, Block)
+    syntax RealSwitch ::= #switch(Expression, Expression, Block, Switch)    [strict(2)]
     syntax AllowLoopControl ::= #allowLoopControlTop(Pgm)
                               | #allowLoopControl(Bool, Statement)
     syntax CheckNames ::= #checkNamesTop(Pgm)
@@ -240,6 +245,10 @@ module YUL
             <block-names> .List </block-names>
             <all-names> .Set </all-names>
         </reserved-names>
+        <evm>
+            <storage> .Map </storage>
+            <mem> .Map </mem>
+        </evm>
     </yul>
 
     rule <k> #allowLoopControlTop(B:Block) => #allowLoopControl(false, B) ... </k>
@@ -260,7 +269,9 @@ module YUL
     rule <k> #allowLoopControl(false, continue) => #syntaxError("continue is only allowed in a for loop's body.") ... </k>
     rule <k> #allowLoopControl(_, _) => . ... </k>  [owise]
 
+
     rule <k> #checkNamesTop(B:Block) => #checkNames(B) ... </k>
+
     rule <k> #checkNames({ }) => . ... </k>
     rule <k> #checkNames({ S }) => #checkNames(S) ~> #popBlockNames ... </k>
          <block-names> .List => ListItem(.Set) ... </block-names>
@@ -304,6 +315,7 @@ module YUL
 
     rule <k> #reserveName(ID) => #declarationError("Variable name " +String #unparseKORE(ID) +String " already taken in this scope.") ... </k>   [owise]
 
+
     rule <k> #start ~> { } => . </k>
 
     rule <k> #start ~> { S:Statement } => . </k>
@@ -326,6 +338,22 @@ module YUL
          <store> ... L |-> VAL:Int ... </store>
          <to-filter> . </to-filter>
 
+
+    
+    // TODO: How to prevent the user from writing #internals in $PGM?
+    syntax String ::= #hexNumberToString(HexNumber) [function, hook(STRING.token2string)]
+    syntax Int ::= #hexNumberStringToInt(String) [function]
+
+    rule <k> X:HexNumber => #hexNumberStringToInt(#hexNumberToString(X)) ... </k>
+         <to-filter> . </to-filter>
+    rule #hexNumberStringToInt(S) => String2Base(replaceAll(S, "0x", ""), 16)
+
+    rule <k> _:FalseLiteral => 0 ... </k>
+         <to-filter> . </to-filter>
+    rule <k> _:TrueLiteral => 1 ... </k>
+         <to-filter> . </to-filter>
+
+    // TODO: eval StringLiteral to Int
 
     rule <k> if 0 _ => . ... </k>
          <to-filter> . </to-filter>
@@ -364,20 +392,18 @@ module YUL
     rule <k> continue ~> _:KItem => continue ... </k>
          <to-filter> . </to-filter>     [priority(51), structural]
 
-    // TODO: eval literals (strings, hex numbers, false/true) to Int
 
-
-    rule <k> switch EXPR:Int case EXPR BLOCK _:Cases => BLOCK ... </k>
+    rule <k> #switch(EXPR, EXPR, BLOCK, _) => BLOCK ... </k>
          <to-filter> . </to-filter>                                                             [structural]
 
-    rule <k> switch EXPR:Int case EXPR BLOCK _:Cases _:Default => BLOCK ... </k>
+    rule <k> #switch(_, _, _, SWITCH) => SWITCH ... </k>                    
+         <to-filter> . </to-filter>                                                             [structural, owise]
+
+    rule <k> switch EXPR case CASEEXPR BLOCK CASES:Cases => #switch(EXPR, CASEEXPR, BLOCK, switch EXPR CASES) ... </k>
          <to-filter> . </to-filter>                                                             [structural]
 
-    rule <k> switch EXPR:Int case _ _ REST:Cases => switch EXPR REST </k>
-         <to-filter> . </to-filter>                                                             [priority(51), structural]
-
-    rule <k> switch EXPR:Int case _ _ REST:Cases DEFAULT:Default => switch EXPR REST DEFAULT </k>
-         <to-filter> . </to-filter>                                                             [priority(51), structural]
+    rule <k> switch EXPR case CASEEXPR BLOCK CASES:Cases DEFAULT:Default => #switch(EXPR, CASEEXPR, BLOCK, switch EXPR CASES DEFAULT) ... </k>
+         <to-filter> . </to-filter>                                                             [structural]
 
     rule <k> switch _ .Cases => . ... </k>
          <to-filter> . </to-filter>                                                             [structural]
@@ -562,6 +588,13 @@ module YUL
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
          <to-filter> . </to-filter>
 
+    rule <k> #functionCall(addmod) => (W0 +Int W1) %Word W2 ... </k>
+         <fn-args> W0:Int, W1:Int, W2:Int => . ... </fn-args>
+         <to-filter> . </to-filter>
+
+    rule <k> #functionCall(mulmod) => (W0 *Int W1) %Word W2 ... </k>
+         <fn-args> W0:Int, W1:Int, W2:Int => . ... </fn-args>
+         <to-filter> . </to-filter>
 
     rule <k> #functionCall(ID:Identifier) => #prepareUserFunc(PARAMS, ARGS, BODY, .TypedIdentifierNeList) ... </k>
          <fn-args> ARGS:Expressions => . ... </fn-args>
