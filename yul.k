@@ -157,6 +157,7 @@ module YUL-SYNTAX
                      | LiteralUntyped ":" TypeName
 
     syntax NumberLiteral ::= HexNumber | DecimalNumber
+    // TODO: Limit StringLiteral to 32 chars.
     syntax StringLiteral ::= String
     // TODO: Solve the issue with the regex below. It makes using config attributes impossible:
     // [Error] Inner Parser: Parse error: unexpected token '"*"' following token '='.
@@ -440,7 +441,7 @@ module YUL
     rule <k> _:FalseLiteral => 0 ... </k>
     rule <k> _:TrueLiteral => 1 ... </k>
 
-    // TODO: eval StringLiteral to Int
+    rule <k> STR:StringLiteral => Bytes2Int(padRightBytes(String2Bytes({STR}:>String), 32, 0), BE, Unsigned) ... </k>
 
     rule <k> if 0 _ => . ... </k>
     rule <k> if _ BLOCK => BLOCK ... </k> [owise]
@@ -647,10 +648,10 @@ module YUL
     rule <k> #functionCall(signextend) => #signextend(W0, W1) ... </k>
          <fn-args> W0:Int, W1:Int => . </fn-args>
 
-    // FIXME:
-    syntax Int ::= #keccak256(String) [function, hook(YUL.keccak256)]
 
     // keccak256(p, n)
+    syntax Int ::= #keccak256(String) [function, hook(YUL.keccak256)]
+
     rule <k> #functionCall(keccak256) => #keccak256(Bytes2String(substrBytes(MEM, ADDR, ADDR +Int NBYTES))) ... </k>
          <fn-args> ADDR:Int, NBYTES:Int => . ... </fn-args>
          <local-mem> MEM </local-mem>
