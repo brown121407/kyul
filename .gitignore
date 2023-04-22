@@ -1,3 +1,4 @@
 *-kompiled/
 .kompile-*
 node_modules
+deps/build

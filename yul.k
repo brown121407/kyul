@@ -183,12 +183,13 @@ endmodule
 module YUL-UTILS
     imports MAP
     imports LIST
-    imports INT
     imports SET
-    imports WORD
-    imports K-REFLECTION
+    imports INT
     imports STRING
     imports BOOL
+    imports BYTES
+    imports K-REFLECTION
+    imports WORD
     imports YUL-SYNTAX
 
     syntax KResult ::= Int
@@ -294,9 +295,6 @@ module YUL-CONFIG
         <store> .Map </store>
         <evaluation>
             <fn-args> . </fn-args>
-            <hoisting>
-                <filtered> .List </filtered>
-            </hoisting>
             <return> .List </return>
         </evaluation>
         <reserved-names>
@@ -309,7 +307,7 @@ module YUL-CONFIG
                 <call-state>
                     <id> 0 </id>
                     <caller> 0 </caller>
-                    <local-mem> .Map </local-mem>
+                    <local-mem> .Bytes </local-mem>
                     <memory-used> 0 </memory-used>
                 </call-state>
 
@@ -344,14 +342,6 @@ module YUL-CONFIG
 endmodule
 
 module YUL
-    imports MAP
-    imports LIST
-    imports INT
-    imports SET
-    imports WORD
-    imports K-REFLECTION
-    imports STRING
-    imports BOOL
     imports YUL-CONFIG
 
 
@@ -429,13 +419,9 @@ module YUL
 
     rule <k> { } => . ... </k>                                          [structural]
 
-    rule <k> { S:Statement } => #toFilter(S) ... </k>
-         <filtered> .List => ListItem(#envRestore(VARS, FUNCS)) ... </filtered>
+    rule <k> { S:Statement } => #toFilter(S) ~> #envRestore(VARS, FUNCS) ... </k>
          <vars> VARS </vars>
-         <funcs> FUNCS </funcs>                                         [priority(0)]
-
-    rule <k> . => S ... </k>
-         <filtered> ... ListItem(S) => .List </filtered>                [priority(0)]
+         <funcs> FUNCS </funcs>
 
     rule <k> ID:Identifier => VAL ... </k>
          <vars> ... ID |-> L ... </vars>
@@ -634,16 +620,59 @@ module YUL
     rule <k> #functionCall(signextend) => #signextend(W0, W1) ... </k>
          <fn-args> W0:Int, W1:Int => . </fn-args>
 
-    // FIXME: Keccak256: this is a placeholder for testing hooks
+    // FIXME:
     syntax Int ::= #keccak256(String) [function, hook(YUL.keccak256)]
-    rule <k> #functionCall(keccak256) => #keccak256("foobar") ... </k>
+    rule <k> #functionCall(keccak256) => #keccak256(Bytes2String(b"\xFF\xFF\xFF\xFF")) ... </k>
          <fn-args> _:Int, _:Int => . ... </fn-args>
 
     // TODO: pc, pop
 
-    // TODO: mload, mstore, mstore8, sload, sstore
+    syntax ExpandMem ::= #expandMem(to: Int)
+    rule <k> #expandMem(NEWMU) => . ... </k>
+         <local-mem> MEM => padRightBytes(MEM, NEWMU *Int 32, 0) </local-mem>
+         <memory-used> _ => NEWMU </memory-used>
 
-    rule <k> #functionCall(msize) => 32 *Word MU ... </k>
+    rule <k> #functionCall(mload) => Bytes2Int(substrBytes(MEM, ADDR, ADDR +Int 32), BE, Unsigned) ... </k>
+         <fn-args> ADDR:Int, .Expressions => . ... </fn-args>
+         <local-mem> MEM </local-mem>
+         <memory-used> MU </memory-used>
+        requires (MU -Int 1) *Int 32 >=Int ADDR
+
+    rule <k> #functionCall(mload) => #expandMem(ADDR /Int 32 +Int (#if ADDR %Int 32 ==Int 0 #then 1 #else 2 #fi)) ~> #functionCall(mload) ... </k>
+         <fn-args> ADDR:Int, .Expressions ... </fn-args>
+         <memory-used> MU </memory-used>
+        requires (MU -Int 1) *Int 32 <Int ADDR
+
+    // FIXME: mstore needs to work on byte addresses, not 32-byte slots (as implemented below)
+    // rule <k> #functionCall(mload) => 0 ... </k>
+    //      <fn-args> SLOT:Int, .Expressions => . ... </fn-args>
+    //      <local-mem> MEM => MEM [SLOT <- 0] </local-mem>
+    //      <memory-used> MU </memory-used>
+    //     requires (notBool (SLOT in_keys(MEM))) andBool (SLOT <Int MU)
+
+    // rule <k> #functionCall(mload) => 0 ... </k>
+    //      <fn-args> SLOT:Int, .Expressions => . ... </fn-args>
+    //      <local-mem> MEM => MEM [SLOT <- 0] </local-mem>
+    //      <memory-used> MU => SLOT +Int 1 </memory-used>
+    //     requires SLOT >=Int MU
+
+    // rule <k> #functionCall(mstore) => #multi(.Expressions) ... </k>
+    //      <fn-args> SLOT:Int, VAL:Int => . ... </fn-args>
+    //      <local-mem> MEM => MEM [SLOT <- VAL] </local-mem>
+    //      <memory-used> MU </memory-used>
+    //     requires (SLOT in_keys(MEM)) orBool (SLOT <Int MU)
+
+    // rule <k> #functionCall(mstore) => #multi(.Expressions) ... </k>
+    //      <fn-args> SLOT:Int, VAL:Int => . ... </fn-args>
+    //      <local-mem> MEM => MEM [SLOT <- VAL] </local-mem>
+    //      <memory-used> MU => SLOT +Int 1 </memory-used>
+    //     requires SLOT >=Int MU
+
+    // TODO: mstore8,
+
+    // TODO: sload, sstore
+
+    rule <k> #functionCall(msize) => 32 *Int MU ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <memory-used> MU </memory-used>
 
@@ -652,7 +681,7 @@ module YUL
          <id> ADDR </id>
 
     rule <k> #functionCall(balance) => BALANCE ... </k>
-         <fn-args> ADDR:Int => . ... </fn-args>
+         <fn-args> ADDR:Int, .Expressions => . ... </fn-args>
          <account>
             <account-id> ADDR </account-id>
             <balance> BALANCE </balance>
@@ -775,12 +804,10 @@ module YUL
 
 
     // Function hoisting
-    rule <k> #toFilter(REST:Statement S:Statement) => #toFilter(REST) ... </k>
-         <filtered> .List => ListItem(S) ... </filtered>
+    rule <k> #toFilter(REST:Statement S:Statement) => #toFilter(REST) ~> S ... </k>
         when notBool isFunctionDefinition(S)                                                                [priority(0)]
 
-    rule <k> #toFilter(S:Statement) => . ... </k>
-         <filtered> .List => ListItem(S) ... </filtered>
+    rule <k> #toFilter(S:Statement) => S ... </k>
         when notBool isFunctionDefinition(S)                                                                [priority(4)]
 
     rule <k> #toFilter(REST:Statement FD:FunctionDefinition) => #hoist(FD) ~> #toFilter(REST) ... </k>      [priority(1), structural]

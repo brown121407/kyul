@@ -3,7 +3,7 @@
         <call-state>
             <id> 0 </id>
             <caller> 0 </caller>
-            <local-mem> .Map </local-mem>
+            <local-mem> .Bytes </local-mem>
             <memory-used> 0 </memory-used>
         </call-state>
 
