@@ -194,39 +194,53 @@ module YUL-UTILS
     syntax KResult ::= Int
                      | Multi
     syntax KItem ::= #envRestore(Map, Map)
-                   | "#start"
-                   | "#funcEnd"
-                   | #letBind(Identifier, Expression)   [strict(2)]
-                   | #bind(Identifier, Expression)      [strict(2)]
-                   | #functionCall(Identifier)
-                   | #evalArg(RealStuff)                [strict]
-                   | #hoist(FunctionDefinition)
-                   | #realStuff(RealStuff)
-                   | #toReturn(TypedIdentifierNeList)
-                   | #evalReturn(Expression)            [strict]
-                   | "#fetchReturns"
-                   | #argBind(TypedIdentifierList, Expressions)
-                   | #prepareUserFunc(TypedIdentifierList, Expressions, Block, TypedIdentifierNeList)
-                   | #endFor(ForLoop)
-                   | #evalForCond(Expression)           [strict]
+                | "#start"
+                | #realStuff(RealStuff)
+
+    syntax Multi ::= #multi(Expressions)
+
+    syntax Bind ::= #letBind(Identifier, Expression)   [strict(2)]
+                  | #bind(Identifier, Expression)      [strict(2)]
+                  | #argBind(TypedIdentifierList, Expressions)
+
+    syntax FunctionUtil ::= "#funcEnd"
+                          | #functionCall(Identifier)
+                          | #evalArg(RealStuff)                [strict]
+                          | #hoist(FunctionDefinition)
+                          | #toReturn(TypedIdentifierNeList)
+                          | #evalReturn(Expression)            [strict]
+                          | "#fetchReturns"
+                          | #prepareUserFunc(TypedIdentifierList, Expressions, Block, TypedIdentifierNeList)
+
+    syntax ForUtil ::= #endFor(ForLoop)
+                     | #evalForCond(Expression)           [strict]
+
     syntax Error ::= #error(String)
                    | #syntaxError(String)
                    | #declarationError(String)
+
     syntax RealStuff ::= Expression
                        | Multi
-    syntax Multi ::= #multi(Expressions)
+
     syntax RealVariableDeclaration ::= "#let" TypedIdentifierNeList
                                      | "#let" TypedIdentifierNeList ":=" "#realStuff" "(" RealStuff ")"             [strict(2)]
+
     syntax RealAssignment ::= "#assign" IdentifierNeList ":=" "#realStuff" "(" RealStuff ")"                      [strict(2)]
+
     syntax RealFor ::= #for(Expression, Block, Block)
+
     syntax RealSwitch ::= #switch(Expression, Expression, Block, Switch)    [strict(2)]
+
     syntax AllowLoopControl ::= #allowLoopControlTop(Pgm)
                               | #allowLoopControl(Bool, Statement)
+
     syntax CheckNames ::= #checkNamesTop(Pgm)
                         | #checkNames(Statement)
                         | #checkNamesFunc(TypedIdentifierList, TypedIdentifierNeList, Block)
                         | "#popBlockNames"
                         | #reserveName(Identifier)
+
+    syntax ToFilter ::= #toFilter(Statement)
 endmodule
 
 module YUL-CONFIG
@@ -281,7 +295,6 @@ module YUL-CONFIG
         <evaluation>
             <fn-args> . </fn-args>
             <hoisting>
-                <to-filter> . </to-filter>
                 <filtered> .List </filtered>
             </hoisting>
             <return> .List </return>
@@ -349,7 +362,7 @@ module YUL
 
     rule <k> #allowLoopControl(_, { }) => . ... </k>
     rule <k> #allowLoopControl(B, { S }) => #allowLoopControl(B, S) ... </k>
-    rule <k> #allowLoopControl(B, S:Statement REST:Statement) => #allowLoopControl(B, S) ~> #allowLoopControl(B, REST) ... </k>
+    rule <k> #allowLoopControl(B, REST:Statement S:Statement) => #allowLoopControl(B, REST) ~> #allowLoopControl(B, S) ... </k>
     rule <k> #allowLoopControl(_, function _ ( _ ) BODY) => #allowLoopControl(false, BODY) ... </k>
     rule <k> #allowLoopControl(_, function _ ( _ ) -> _ BODY) => #allowLoopControl(false, BODY) ... </k>
     rule <k> #allowLoopControl(_, for INIT _ POST BODY) => #allowLoopControl(false, INIT) ~> #allowLoopControl(false, POST) ~> #allowLoopControl(true, BODY) ... </k>
@@ -369,7 +382,7 @@ module YUL
     rule <k> #checkNames({ }) => . ... </k>
     rule <k> #checkNames({ S }) => #checkNames(S) ~> #popBlockNames ... </k>
          <block-names> .List => ListItem(.Set) ... </block-names>
-    rule <k> #checkNames(S:Statement REST:Statement) => #checkNames(S) ~> #checkNames(REST) ... </k>
+    rule <k> #checkNames(REST:Statement S:Statement) => #checkNames(REST) ~> #checkNames(S) ... </k>
     rule <k> #checkNames(let ID, IDS:TypedIdentifierNeList) => #reserveName(ID) ~> #checkNames(let IDS) ... </k>
     rule <k> #checkNames(let ID : _, IDS:TypedIdentifierNeList) => #reserveName(ID) ~> #checkNames(let IDS) ... </k>
     rule <k> #checkNames(let ID, IDS:TypedIdentifierNeList := _) => #reserveName(ID) ~> #checkNames(let IDS) ... </k>
@@ -412,26 +425,21 @@ module YUL
 
     rule <k> #start ~> { } => . </k>
 
-    rule <k> #start ~> { S:Statement } => . </k>
-         <to-filter> . => S </to-filter>
+    rule <k> #start ~> { S:Statement } => #toFilter(S) </k>
 
     rule <k> { } => . ... </k>                                          [structural]
 
-    rule <k> { S:Statement } => . ... </k>
-         <to-filter> . => S </to-filter>
+    rule <k> { S:Statement } => #toFilter(S) ... </k>
          <filtered> .List => ListItem(#envRestore(VARS, FUNCS)) ... </filtered>
          <vars> VARS </vars>
          <funcs> FUNCS </funcs>                                         [priority(0)]
 
     rule <k> . => S ... </k>
-         <to-filter> . </to-filter>
          <filtered> ... ListItem(S) => .List </filtered>                [priority(0)]
 
     rule <k> ID:Identifier => VAL ... </k>
          <vars> ... ID |-> L ... </vars>
          <store> ... L |-> VAL:Int ... </store>
-         <to-filter> . </to-filter>
-
 
 
     // TODO: How to prevent the user from writing #internals in $PGM?
@@ -439,266 +447,196 @@ module YUL
     syntax Int ::= #hexNumberStringToInt(String) [function]
 
     rule <k> X:HexNumber => #hexNumberStringToInt(#hexNumberToString(X)) ... </k>
-         <to-filter> . </to-filter>
     rule #hexNumberStringToInt(S) => String2Base(replaceAll(S, "0x", ""), 16)
 
     rule <k> _:FalseLiteral => 0 ... </k>
-         <to-filter> . </to-filter>
     rule <k> _:TrueLiteral => 1 ... </k>
-         <to-filter> . </to-filter>
 
     // TODO: eval StringLiteral to Int
 
     rule <k> if 0 _ => . ... </k>
-         <to-filter> . </to-filter>
-    rule <k> if _ BLOCK => BLOCK ... </k>
-         <to-filter> . </to-filter>         [owise]
+    rule <k> if _ BLOCK => BLOCK ... </k> [owise]
 
     rule <k> for { S } COND POST BODY => S ~> #for(COND, POST, BODY) ~> #envRestore(VARS, FUNCS) ~> #endFor(for { } COND POST BODY) ... </k>
          <vars> VARS </vars>
-         <funcs> FUNCS </funcs>
-         <to-filter> . </to-filter>                                                             [structural]
+         <funcs> FUNCS </funcs> [structural]
     rule <k> for { } COND POST BODY => #for(COND, POST, BODY) ~> #envRestore(VARS, FUNCS) ~> #endFor(for { } COND POST BODY) ... </k>
          <vars> VARS </vars>
-         <funcs> FUNCS </funcs>
-         <to-filter> . </to-filter>                                                             [structural]
+         <funcs> FUNCS </funcs> [structural]
 
     rule <k> #for(COND, _, _) #as FOR:RealFor => #evalForCond(COND) ~> FOR ... </k>
-         <to-filter> . </to-filter>
 
     rule <k> #evalForCond(EVALEDCOND) ~> #for(COND, POST, BODY) => BODY ~> POST ~> #for(COND, POST, BODY) ... </k>
-         <to-filter> . </to-filter>
         requires #word2Bool(EVALEDCOND)
 
-    rule <k> #evalForCond(_) ~> #for(_, _, _) => . ... </k>
-         <to-filter> . </to-filter>                                                             [owise]
+    rule <k> #evalForCond(_) ~> #for(_, _, _) => . ... </k> [owise]
 
-    rule <k> #endFor(_) => . ... </k>
-         <to-filter> . </to-filter>                                                             [structural]
+    rule <k> #endFor(_) => . ... </k> [structural]
 
-    rule <k> break ~> #envRestore(VARS, FUNCS) ~> #endFor(_) => #envRestore(VARS, FUNCS) ... </k>
-         <to-filter> . </to-filter>     [structural]
-    rule <k> break ~> _:KItem => break ... </k>
-         <to-filter> . </to-filter>     [priority(51), structural]
+    rule <k> break ~> #envRestore(VARS, FUNCS) ~> #endFor(_) => #envRestore(VARS, FUNCS) ... </k> [structural]
+    rule <k> break ~> _:KItem => break ... </k> [priority(51), structural]
 
-    rule <k> continue ~> #envRestore(VARS, FUNCS) ~> #endFor((for { } _ POST _) #as LOOP) => POST ~> LOOP ~> #envRestore(VARS, FUNCS) ~> #endFor(LOOP) ... </k>
-         <to-filter> . </to-filter>     [structural]
-    rule <k> continue ~> _:KItem => continue ... </k>
-         <to-filter> . </to-filter>     [priority(51), structural]
+    rule <k> continue ~> #envRestore(VARS, FUNCS) ~> #endFor((for { } _ POST _) #as LOOP) => POST ~> LOOP ~> #envRestore(VARS, FUNCS) ~> #endFor(LOOP) ... </k> [structural]
+    rule <k> continue ~> _:KItem => continue ... </k> [priority(51), structural]
 
 
-    rule <k> #switch(EXPR, EXPR, BLOCK, _) => BLOCK ... </k>
-         <to-filter> . </to-filter>                                                             [structural]
+    rule <k> #switch(EXPR, EXPR, BLOCK, _) => BLOCK ... </k> [structural]
 
-    rule <k> #switch(_, _, _, SWITCH) => SWITCH ... </k>
-         <to-filter> . </to-filter>                                                             [structural, owise]
+    rule <k> #switch(_, _, _, SWITCH) => SWITCH ... </k> [structural, owise]
 
-    rule <k> switch EXPR case CASEEXPR BLOCK CASES:Cases => #switch(EXPR, CASEEXPR, BLOCK, switch EXPR CASES) ... </k>
-         <to-filter> . </to-filter>                                                             [structural]
+    rule <k> switch EXPR case CASEEXPR BLOCK CASES:Cases => #switch(EXPR, CASEEXPR, BLOCK, switch EXPR CASES) ... </k> [structural]
 
-    rule <k> switch EXPR case CASEEXPR BLOCK CASES:Cases DEFAULT:Default => #switch(EXPR, CASEEXPR, BLOCK, switch EXPR CASES DEFAULT) ... </k>
-         <to-filter> . </to-filter>                                                             [structural]
+    rule <k> switch EXPR case CASEEXPR BLOCK CASES:Cases DEFAULT:Default => #switch(EXPR, CASEEXPR, BLOCK, switch EXPR CASES DEFAULT) ... </k> [structural]
 
-    rule <k> switch _ .Cases => . ... </k>
-         <to-filter> . </to-filter>                                                             [structural]
+    rule <k> switch _ .Cases => . ... </k> [structural]
 
-    rule <k> switch _ .Cases default BLOCK => BLOCK ... </k>
-         <to-filter> . </to-filter>                                                             [structural]
+    rule <k> switch _ .Cases default BLOCK => BLOCK ... </k> [structural]
 
-    rule <k> switch _ default BLOCK => BLOCK ... </k>
-         <to-filter> . </to-filter>                                                             [structural]
+    rule <k> switch _ default BLOCK => BLOCK ... </k> [structural]
 
 
-    rule <k> let IDS => #let IDS ... </k>
-         <to-filter> . </to-filter>                                     [structural]
+    rule <k> let IDS => #let IDS ... </k> [structural]
 
-    rule <k> let IDS := E => #let IDS := #realStuff(E) ... </k>
-         <to-filter> . </to-filter>                                     [structural]
+    rule <k> let IDS := E => #let IDS := #realStuff(E) ... </k> [structural]
 
-    rule <k> IDS := E => #assign IDS := #realStuff(E) ... </k>
-         <to-filter> . </to-filter>                                     [structural]
+    rule <k> IDS := E => #assign IDS := #realStuff(E) ... </k> [structural]
 
 
-    rule <k> #let ID:Identifier : _:TypeName, IDS:TypedIdentifierNeList => #let ID, IDS ... </k>
-         <to-filter> . </to-filter>                                     [structural]
+    rule <k> #let ID:Identifier : _:TypeName, IDS:TypedIdentifierNeList => #let ID, IDS ... </k> [structural]
 
-    rule <k> #let ID , IDS:TypedIdentifierNeList => #letBind(ID, 0) ~> #let IDS ... </k>
-         <to-filter> . </to-filter>                                     [structural]
+    rule <k> #let ID , IDS:TypedIdentifierNeList => #letBind(ID, 0) ~> #let IDS ... </k> [structural]
 
-    rule <k> #let .TypedIdentifierNeList => . ... </k>
-         <to-filter> . </to-filter>                                     [structural]
+    rule <k> #let .TypedIdentifierNeList => . ... </k> [structural]
 
 
-    rule <k> #let ID:Identifier : _:TypeName, IDS:TypedIdentifierNeList := #realStuff(RS) => #let ID, IDS := #realStuff(RS) ... </k>
-         <to-filter> . </to-filter>                                     [structural]
+    rule <k> #let ID:Identifier : _:TypeName, IDS:TypedIdentifierNeList := #realStuff(RS) => #let ID, IDS := #realStuff(RS) ... </k> [structural]
 
-    rule <k> #let ID , IDS:TypedIdentifierNeList := #realStuff(#multi(E:Expression, REST)) => #letBind(ID, E) ~> #let IDS := #realStuff(#multi(REST)) ... </k>
-         <to-filter> . </to-filter>                                     [structural]
+    rule <k> #let ID , IDS:TypedIdentifierNeList := #realStuff(#multi(E:Expression, REST)) => #letBind(ID, E) ~> #let IDS := #realStuff(#multi(REST)) ... </k> [structural]
 
-    rule <k> #let .TypedIdentifierNeList := #realStuff(#multi(.Expressions)) => . ... </k>
-         <to-filter> . </to-filter>                                     [structural]
+    rule <k> #let .TypedIdentifierNeList := #realStuff(#multi(.Expressions)) => . ... </k> [structural]
 
-    rule <k> #let ID , .TypedIdentifierNeList := #realStuff(E:Expression) => #letBind(ID, E) ... </k>
-         <to-filter> . </to-filter>                                     [structural]
+    rule <k> #let ID , .TypedIdentifierNeList := #realStuff(E:Expression) => #letBind(ID, E) ... </k> [structural]
 
 
-    rule <k> #assign ID, IDS:IdentifierNeList := #realStuff(#multi(E:Expression, REST)) => #bind(ID, E) ~> #assign IDS := #realStuff(#multi(REST)) ... </k>
-         <to-filter> . </to-filter>                                     [structural]
+    rule <k> #assign ID, IDS:IdentifierNeList := #realStuff(#multi(E:Expression, REST)) => #bind(ID, E) ~> #assign IDS := #realStuff(#multi(REST)) ... </k> [structural]
 
-    rule <k> #assign .IdentifierNeList := #realStuff(#multi(.Expressions)) => . ... </k>
-         <to-filter> . </to-filter>                                     [structural]
+    rule <k> #assign .IdentifierNeList := #realStuff(#multi(.Expressions)) => . ... </k> [structural]
 
-    rule <k> #assign ID, .IdentifierNeList := #realStuff(E:Expression) => #bind(ID, E) ... </k>
-         <to-filter> . </to-filter>                                     [structural]
+    rule <k> #assign ID, .IdentifierNeList := #realStuff(E:Expression) => #bind(ID, E) ... </k> [structural]
 
 
     rule <k> #letBind(ID, VAL:Int) => . ... </k>
          <vars> VARS:Map => VARS[ID <- !L:Int] </vars>
          <store> ... .Map => !L |-> VAL ... </store>
          <funcs> FUNCS </funcs>
-         <to-filter> . </to-filter>
         when (notBool (ID in_keys(VARS))) andBool (notBool (ID in_keys(FUNCS)))
 
     rule <k> #bind(ID, VAL:Int) => . ... </k>
          <vars> ... ID |-> L ... </vars>
          <store> STORE => STORE[L <- VAL] </store>
-         <to-filter> . </to-filter>
 
-    // TODO: Do I need to use <to-filter> . </to-filter> everywhere??
     rule <k> #envRestore(VARS, FUNCS) => . ... </k>
          <vars> _ => VARS </vars>
          <funcs> _ => FUNCS </funcs>
-         <to-filter> . </to-filter>
 
 
     // Function execution
     rule <k> FUN:Identifier ( ARGS:Expressions ) => ARGS ~> #functionCall(FUN) ... </k>
          <fn-args> K => .Expressions ~> K </fn-args>
-         <to-filter> . </to-filter>
 
     // Arguments are evaluated from right to left.
-    rule <k> ARG:Expression , ARGS:Expressions => ARGS ~> #evalArg(ARG) ... </k>
-         <to-filter> . </to-filter>                                                             [structural]
+    rule <k> ARG:Expression , ARGS:Expressions => ARGS ~> #evalArg(ARG) ... </k>    [structural]
 
     rule <k> .Expressions => . ... </k>
-         <to-filter> . </to-filter>
 
     rule <k> #evalArg(#multi(ARG:Expression, .Expressions)) => . ... </k>
          <fn-args> ARGS:Expressions => ARG, ARGS ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #evalArg(ARG:Expression) => . ... </k>
          <fn-args> ARGS:Expressions => ARG, ARGS ... </fn-args>
-         <to-filter> . </to-filter>
 
 
     rule <k> #functionCall(stop) ~> _ => . </k>
          <fn-args> .Expressions => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(add) => W0 +Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(sub) => W0 -Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(mul) => W0 *Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(div) => W0 /Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(sdiv) => W0 /sWord W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(mod) => W0 %Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(smod) => W0 %sWord W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(exp) => W0 ^Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(not) => ~Word W ... </k>
          <fn-args> W:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(lt) => W0 <Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(gt) => W0 >Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(slt) => W0 s<Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(sgt) => W1 s<Word W0 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(eq) => W0 ==Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(iszero) => W ==Word 0 ... </k>
          <fn-args> W:Int, .Expressions => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(and) => W0 &Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(or) => W0 |Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(xor) => W0 xorWord W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     // TODO: byte
 
     rule <k> #functionCall(shl) => W0 <<Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(shr) => W0 >>Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(sar) => W0 >>sWord W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(addmod) => (W0 +Int W1) %Word W2 ... </k>
          <fn-args> W0:Int, W1:Int, W2:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(mulmod) => (W0 *Int W1) %Word W2 ... </k>
          <fn-args> W0:Int, W1:Int, W2:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(signextend) => #signextend(W0, W1) ... </k>
          <fn-args> W0:Int, W1:Int => . </fn-args>
-         <to-filter> . </to-filter>
 
     // FIXME: Keccak256: this is a placeholder for testing hooks
     syntax Int ::= #keccak256(String) [function, hook(YUL.keccak256)]
     rule <k> #functionCall(keccak256) => #keccak256("foobar") ... </k>
          <fn-args> _:Int, _:Int => . ... </fn-args>
-         <to-filter> . </to-filter>
 
     // TODO: pc, pop
 
@@ -707,12 +645,10 @@ module YUL
     rule <k> #functionCall(msize) => 32 *Word MU ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <memory-used> MU </memory-used>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(address) => ADDR ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <id> ADDR </id>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(balance) => BALANCE ... </k>
          <fn-args> ADDR:Int => . ... </fn-args>
@@ -721,7 +657,6 @@ module YUL
             <balance> BALANCE </balance>
             ...
          </account>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(selfbalance) => BALANCE ... </k>
          <fn-args> .Expressions => . ... </fn-args>
@@ -731,157 +666,132 @@ module YUL
             <balance> BALANCE </balance>
             ...
          </account>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(caller) => ADDR ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <caller> ADDR </caller>
-         <to-filter> . </to-filter>
 
-    // TODO: gas, callvalue, calldataload, calldatacopy, codesize, codecopy, extcodesize
-    // TODO: extcodecopy, returndatasize, returndatacopy, extcodehash, create, create2, call, callcode, delegatecall, staticcall,
-    // TODO: return, revert, selfdestruct, invalid, log0, log1, log2, log3, log4,
+    /*
+    TODO: gas, callvalue, calldataload, calldatacopy, codesize, codecopy, extcodesize,
+        extcodecopy, returndatasize, returndatacopy, extcodehash, create, create2, call,
+        callcode, delegatecall, staticcall, return, revert, selfdestruct, invalid, log0,
+        log1, log2, log3, log4
+    */
 
     rule <k> #functionCall(chainid) => CHAINID ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <chain-id> CHAINID </chain-id>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(basefee) => BASEFEE ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <base-fee> BASEFEE </base-fee>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(origin) => ORIGIN ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <origin> ORIGIN </origin>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(gasprice) => GASPRICE ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <gas-price> GASPRICE </gas-price>
-         <to-filter> . </to-filter>
 
-    // TODO: blockhash,
+    // TODO: blockhash
 
     rule <k> #functionCall(coinbase) => COINBASE ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <coinbase> COINBASE </coinbase>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(timestamp) => TIMESTAMP ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <timestamp> TIMESTAMP </timestamp>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(number) => NUMBER ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <number> NUMBER </number>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(difficulty) => DIFFICULTY ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <difficulty> DIFFICULTY </difficulty>
-         <to-filter> . </to-filter>
 
     // TODO: prevrandao
 
     rule <k> #functionCall(gaslimit) => GASLIMIT ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <gas-limit> GASLIMIT </gas-limit>
-         <to-filter> . </to-filter>
 
 
     rule <k> #functionCall(ID:Identifier) => #prepareUserFunc(PARAMS, ARGS, BODY, .TypedIdentifierNeList) ... </k>
          <fn-args> ARGS:Expressions => . ... </fn-args>
          <funcs> ... ID |-> L ... </funcs>
          <store> ... L |-> (function ID ( PARAMS ) BODY) ... </store>
-         <to-filter> . </to-filter>
 
     rule <k> #functionCall(ID:Identifier) => #prepareUserFunc(PARAMS, ARGS, BODY, RETURNS) ... </k>
          <fn-args> ARGS:Expressions => . ... </fn-args>
          <funcs> ... ID |-> L ... </funcs>
          <store> ... L |-> (function ID ( PARAMS ) -> RETURNS BODY) ... </store>
-         <to-filter> . </to-filter>
 
 
     rule <k> #prepareUserFunc(PARAMS, ARGS, BODY, RETURNS) => #argBind(PARAMS, ARGS) ~> #let RETURNS ~> BODY ~> #funcEnd ~> #toReturn(RETURNS) ~> #envRestore(VARS, FUNCS) ... </k>
          <funcs> FUNCS </funcs>
          <vars> VARS => .Map </vars>
-         <to-filter> . </to-filter>
 
 
     rule <k> #argBind(ID:Identifier, PARAMS:TypedIdentifierList, VAL:Expression, ARGS:Expressions) => #let ID := #realStuff(VAL) ~> #argBind(PARAMS, ARGS) ... </k>
-         <to-filter> . </to-filter>
 
     rule <k> #argBind(ID:Identifier : _:TypeName, PARAMS:TypedIdentifierList, VAL:Expression, ARGS:Expressions) => #let ID := #realStuff(VAL) ~> #argBind(PARAMS, ARGS) ... </k>
-         <to-filter> . </to-filter>
 
     rule <k> #argBind(.TypedIdentifierList, .Expressions) => . ... </k>
-         <to-filter> . </to-filter>
 
 
     rule <k> #funcEnd => . ... </k>
-         <to-filter> . </to-filter>
 
 
     rule <k> #toReturn(.TypedIdentifierNeList) => #fetchReturns ~> #multi(.Expressions) ... </k>
-         <to-filter> . </to-filter>
 
     rule <k> #toReturn(ID : _:TypeName, REST) => #evalReturn(ID) ~> #toReturn(REST) ... </k>
-         <to-filter> . </to-filter>
 
     rule <k> #toReturn(ID, REST) => #evalReturn(ID) ~> #toReturn(REST) ... </k>
-         <to-filter> . </to-filter>
 
 
     rule <k> #evalReturn(VAL) => . ... </k>
          <return> ... .List => ListItem(VAL) </return>
-         <to-filter> . </to-filter>
 
 
     rule <k> #fetchReturns ~> #multi(RETURNED) => #fetchReturns ~> #multi(VAL, RETURNED) ... </k>
          <return> ... ListItem(VAL) => .List </return>
-         <to-filter> . </to-filter>
 
     rule <k> #fetchReturns ~> #multi(EXPRS) ~> #envRestore(VARS, FUNCS) => #envRestore(VARS, FUNCS) ~> #multi(EXPRS) ... </k>
          <return> .List </return>
-         <to-filter> . </to-filter>
 
 
     rule <k> #multi(.Expressions) => . ... </k>
-         <to-filter> . </to-filter>
 
     rule <k> #multi(EXPR:Expression, .Expressions) => EXPR ... </k>
-         <to-filter> . </to-filter>
 
 
-    rule <k> leave ~> #funcEnd => #funcEnd ... </k>
-         <to-filter> . </to-filter>                                         [priority(51), structural]
+    rule <k> leave ~> #funcEnd => #funcEnd ... </k>                                         [priority(51), structural]
 
-    rule <k> leave ~> _:KItem => leave ... </k>
-         <to-filter> . </to-filter>                                         [priority(52), structural]
+    rule <k> leave ~> _:KItem => leave ... </k>                                         [priority(52), structural]
 
 
     // Function hoisting
-    rule <to-filter> REST:Statement S:Statement => REST </to-filter>
+    rule <k> #toFilter(REST:Statement S:Statement) => #toFilter(REST) ... </k>
          <filtered> .List => ListItem(S) ... </filtered>
-        when notBool isFunctionDefinition(S)                                                    [priority(0)]
+        when notBool isFunctionDefinition(S)                                                                [priority(0)]
 
-    rule <to-filter> S:Statement => . </to-filter>
+    rule <k> #toFilter(S:Statement) => . ... </k>
          <filtered> .List => ListItem(S) ... </filtered>
-        when notBool isFunctionDefinition(S)                                                    [priority(4)]
+        when notBool isFunctionDefinition(S)                                                                [priority(4)]
 
-    rule <to-filter> REST:Statement FD:FunctionDefinition => #hoist(FD) ~> REST </to-filter>    [priority(1), structural]
-    rule <to-filter> FD:FunctionDefinition => #hoist(FD) </to-filter>                           [priority(2), structural]
+    rule <k> #toFilter(REST:Statement FD:FunctionDefinition) => #hoist(FD) ~> #toFilter(REST) ... </k>      [priority(1), structural]
+    rule <k> #toFilter(FD:FunctionDefinition) => #hoist(FD) ... </k>                                        [priority(2), structural]
 
-    rule <to-filter> #hoist(function ID ( PARAMS ) -> RETURNS BLOCK) => . ... </to-filter>
+    rule <k> #hoist(function ID ( PARAMS ) -> RETURNS BLOCK) => . ... </k>
          <funcs> FUNCS => FUNCS[ID <- !L:Int] </funcs>
          <store> ... .Map => !L |-> (function ID ( PARAMS ) -> RETURNS BLOCK) ... </store>
          <vars> VARS </vars>
         when (notBool (ID in_keys(FUNCS))) andBool (notBool (ID in_keys(VARS)))
 
-    rule <to-filter> #hoist(function ID ( PARAMS ) BLOCK) => . ... </to-filter>
+    rule <k> #hoist(function ID ( PARAMS ) BLOCK) => . ... </k>
          <funcs> FUNCS => FUNCS[ID <- !L:Int] </funcs>
          <store> ... .Map => !L |-> (function ID ( PARAMS ) BLOCK) ... </store>
          <vars> VARS </vars>
