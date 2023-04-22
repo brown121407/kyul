@@ -1,0 +1,36 @@
+<ethereum>
+    <evm>
+        <call-state>
+            <id> 0 </id>
+            <caller> 0 </caller>
+            <local-mem> .Map </local-mem>
+            <memory-used> 0 </memory-used>
+        </call-state>
+
+        <gas-price> 0 </gas-price>
+        <origin> 0 </origin>
+
+        <block>
+            <coinbase>   0 </coinbase>
+            <difficulty> 0 </difficulty>
+            <number>     0 </number>
+            <gas-limit>  0 </gas-limit>
+            <timestamp>  0 </timestamp>
+            <base-fee>   0 </base-fee>
+        </block>
+    </evm>
+
+    <network>
+        <chain-id> 1 </chain-id>
+
+        <active-accounts> .Set </active-accounts>
+        <accounts>
+            <account>
+                <account-id> 0    </account-id>
+                <balance>    0    </balance>
+                <storage>    .Map </storage>
+                <nonce>      0    </nonce>
+            </account>
+        </accounts>
+    </network>
+</ethereum>

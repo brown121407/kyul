@@ -1,0 +1,13 @@
+#!/bin/sh
+
+if [ $# -lt 2 ]; then
+    echo "Usage: ./runyul ethconfig.xml inputfile.yul"
+    exit 1
+fi
+
+
+ETHCONFIG=`cat "$1"`
+PGM=`cat "$2"`
+
+
+krun -cETHCONFIG="$ETHCONFIG" -cPGM="$PGM"

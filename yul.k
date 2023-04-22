@@ -1,17 +1,20 @@
 /*
 Copyright 2023 Alexandru-Sergiu Marton
 
-This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free Software
+This file is part of KYUL.
+
+KYUL is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License as published by the Free Software
 Foundation, either version 3 of the License, or (at your option) any later
 version.
 
-This program is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-PARTICULAR PURPOSE. See the GNU General Public License for more details.
+KYUL is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+details.
 
-You should have received a copy of the GNU General Public License along with
-this program. If not, see <https://www.gnu.org/licenses/>.
+You should have received a copy of the GNU General Public License along
+with KYUL. If not, see <https://www.gnu.org/licenses/>.
 */
 
 requires "word.k"
@@ -24,7 +27,7 @@ module YUL-SYNTAX
     // FIXME: The parses is too dumb to work with List{Statement, ""}, and this stuff is
     // only mentioned in passing in a comment at https://kframework.org/k-distribution/pl-tutorial/2_languages/1_simple/1_untyped/simple-untyped/
     // syntax Statements ::= List{Statement, ""}
-    syntax Statement ::= Block                             
+    syntax Statement ::= Block
                        | FunctionDefinition
                        | VariableDeclaration
                        | Assignment
@@ -56,9 +59,8 @@ module YUL-SYNTAX
     syntax Case ::= "case" Literal Block                        [strict(1)]
     syntax Default ::= "default" Block
     syntax ForLoop ::= "for" Block Expression Block Block
-    syntax FunctionCall ::= Identifier "(" Expressions ")" 
-    syntax Expressions ::= List{Expression, ","}    // FunctionArgs
-    // syntax FunctionArgs ::= List{Expression, ","}
+    syntax FunctionCall ::= Identifier "(" Expressions ")"
+    syntax Expressions ::= List{Expression, ","}    // also works as FunctionArgs
 
     // FIXME: Find a way to add $ to the start of identifiers without messing up the builtin $PGM variable.
     syntax Identifier ::= "stop"                                 [token]
@@ -178,7 +180,7 @@ module YUL-SYNTAX
     syntax Pgm ::= Object | Block
 endmodule
 
-module YUL
+module YUL-UTILS
     imports MAP
     imports LIST
     imports INT
@@ -196,7 +198,7 @@ module YUL
                    | "#funcEnd"
                    | #letBind(Identifier, Expression)   [strict(2)]
                    | #bind(Identifier, Expression)      [strict(2)]
-                   | #functionCall(Identifier) 
+                   | #functionCall(Identifier)
                    | #evalArg(RealStuff)                [strict]
                    | #hoist(FunctionDefinition)
                    | #realStuff(RealStuff)
@@ -225,9 +227,52 @@ module YUL
                         | #checkNamesFunc(TypedIdentifierList, TypedIdentifierNeList, Block)
                         | "#popBlockNames"
                         | #reserveName(Identifier)
+endmodule
+
+module YUL-CONFIG
+    /*
+    This module (YUL-CONFIG) is adapted from the KEVM project: https://github.com/runtimeverification/evm-semantics
+    Originally licensed under the BSD 3-Clause "New" or "Revised" License:
+
+    BSD 3-Clause License
+
+    Copyright (c) 2016-2022, Runtime Verification Inc.
+
+    All rights reserved.
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions are met:
+
+    1. Redistributions of source code must retain the above copyright notice, this
+    list of conditions and the following disclaimer.
+
+    2. Redistributions in binary form must reproduce the above copyright notice,
+    this list of conditions and the following disclaimer in the documentation
+    and/or other materials provided with the distribution.
+
+    3. Neither the name of the copyright holder nor the names of its
+    contributors may be used to endorse or promote products derived from
+    this software without specific prior written permission.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+    AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+    IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+    DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+    FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+    DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+    SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+    CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+    OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+    OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+    */
+
+    imports YUL-UTILS
+
+
+    syntax LoadEthConfig ::= #loadEthConfig(EthereumCell)
 
     configuration <yul>
-        <k> #checkNamesTop($PGM) ~> #allowLoopControlTop($PGM) ~> #start ~> $PGM:Pgm </k>
+        <k> #loadEthConfig($ETHCONFIG) ~> #checkNamesTop($PGM) ~> #allowLoopControlTop($PGM) ~> #start ~> $PGM:Pgm </k>
         <env>
             <vars> .Map </vars>
             <funcs> .Map </funcs>
@@ -245,11 +290,60 @@ module YUL
             <block-names> .List </block-names>
             <all-names> .Set </all-names>
         </reserved-names>
-        <evm>
-            <storage> .Map </storage>
-            <mem> .Map </mem>
-        </evm>
+
+        <ethereum>
+            <evm>
+                <call-state>
+                    <id> 0 </id>
+                    <caller> 0 </caller>
+                    <local-mem> .Map </local-mem>
+                    <memory-used> 0 </memory-used>
+                </call-state>
+
+                <gas-price> 0 </gas-price>
+                <origin> 0 </origin>
+
+                <block>
+                    <coinbase>   0 </coinbase>
+                    <difficulty> 0 </difficulty>
+                    <number>     0 </number>
+                    <gas-limit>  0 </gas-limit>
+                    <timestamp>  0 </timestamp>
+                    <base-fee>   0 </base-fee>
+                </block>
+            </evm>
+
+            <network>
+                <chain-id> 1 </chain-id>
+
+                <active-accounts> .Set </active-accounts>
+                <accounts>
+                    <account multiplicity="*" type="Map">
+                        <account-id> 0    </account-id>
+                        <balance>    0    </balance>
+                        <storage>    .Map </storage>
+                        <nonce>      0    </nonce>
+                    </account>
+                </accounts>
+            </network>
+        </ethereum>
     </yul>
+endmodule
+
+module YUL
+    imports MAP
+    imports LIST
+    imports INT
+    imports SET
+    imports WORD
+    imports K-REFLECTION
+    imports STRING
+    imports BOOL
+    imports YUL-CONFIG
+
+
+    rule <k> #loadEthConfig(ETHCONFIG) => . ... </k>
+         (<ethereum> _ </ethereum> => ETHCONFIG)
 
     rule <k> #allowLoopControlTop(B:Block) => #allowLoopControl(false, B) ... </k>
 
@@ -306,7 +400,7 @@ module YUL
             <all-names> ALLNAMES => ALLNAMES -Set BLOCKNAMES </all-names>
          </reserved-names>
 
-    rule <k> #reserveName(ID) => . ... </k> 
+    rule <k> #reserveName(ID) => . ... </k>
          <reserved-names>
              <block-names> ListItem(BLOCKNAMES => BLOCKNAMES SetItem(ID)) ...  </block-names>
              <all-names> ALLNAMES => ALLNAMES SetItem(ID) </all-names>
@@ -334,12 +428,12 @@ module YUL
          <filtered> ... ListItem(S) => .List </filtered>                [priority(0)]
 
     rule <k> ID:Identifier => VAL ... </k>
-         <vars> ... ID |-> L ... </vars> 
+         <vars> ... ID |-> L ... </vars>
          <store> ... L |-> VAL:Int ... </store>
          <to-filter> . </to-filter>
 
 
-    
+
     // TODO: How to prevent the user from writing #internals in $PGM?
     syntax String ::= #hexNumberToString(HexNumber) [function, hook(STRING.token2string)]
     syntax Int ::= #hexNumberStringToInt(String) [function]
@@ -396,7 +490,7 @@ module YUL
     rule <k> #switch(EXPR, EXPR, BLOCK, _) => BLOCK ... </k>
          <to-filter> . </to-filter>                                                             [structural]
 
-    rule <k> #switch(_, _, _, SWITCH) => SWITCH ... </k>                    
+    rule <k> #switch(_, _, _, SWITCH) => SWITCH ... </k>
          <to-filter> . </to-filter>                                                             [structural, owise]
 
     rule <k> switch EXPR case CASEEXPR BLOCK CASES:Cases => #switch(EXPR, CASEEXPR, BLOCK, switch EXPR CASES) ... </k>
@@ -460,8 +554,8 @@ module YUL
 
     rule <k> #letBind(ID, VAL:Int) => . ... </k>
          <vars> VARS:Map => VARS[ID <- !L:Int] </vars>
-         <store> ... .Map => !L |-> VAL ... </store>  
-         <funcs> FUNCS </funcs>      
+         <store> ... .Map => !L |-> VAL ... </store>
+         <funcs> FUNCS </funcs>
          <to-filter> . </to-filter>
         when (notBool (ID in_keys(VARS))) andBool (notBool (ID in_keys(FUNCS)))
 
@@ -488,7 +582,7 @@ module YUL
 
     rule <k> .Expressions => . ... </k>
          <to-filter> . </to-filter>
-    
+
     rule <k> #evalArg(#multi(ARG:Expression, .Expressions)) => . ... </k>
          <fn-args> ARGS:Expressions => ARG, ARGS ... </fn-args>
          <to-filter> . </to-filter>
@@ -533,7 +627,7 @@ module YUL
     rule <k> #functionCall(exp) => W0 ^Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
          <to-filter> . </to-filter>
-    
+
     rule <k> #functionCall(not) => ~Word W ... </k>
          <fn-args> W:Int => . ... </fn-args>
          <to-filter> . </to-filter>
@@ -550,10 +644,10 @@ module YUL
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
          <to-filter> . </to-filter>
 
-    rule <k> #functionCall(sgt) => W0 s>Word W1 ... </k>
+    rule <k> #functionCall(sgt) => W1 s<Word W0 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
          <to-filter> . </to-filter>
-    
+
     rule <k> #functionCall(eq) => W0 ==Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
          <to-filter> . </to-filter>
@@ -596,6 +690,108 @@ module YUL
          <fn-args> W0:Int, W1:Int, W2:Int => . ... </fn-args>
          <to-filter> . </to-filter>
 
+    rule <k> #functionCall(signextend) => #signextend(W0, W1) ... </k>
+         <fn-args> W0:Int, W1:Int => . </fn-args>
+         <to-filter> . </to-filter>
+
+    // FIXME: Keccak256: this is a placeholder for testing hooks
+    syntax Int ::= #keccak256(String) [function, hook(YUL.keccak256)]
+    rule <k> #functionCall(keccak256) => #keccak256("foobar") ... </k>
+         <fn-args> _:Int, _:Int => . ... </fn-args>
+         <to-filter> . </to-filter>
+
+    // TODO: pc, pop
+
+    // TODO: mload, mstore, mstore8, sload, sstore
+
+    rule <k> #functionCall(msize) => 32 *Word MU ... </k>
+         <fn-args> .Expressions => . ... </fn-args>
+         <memory-used> MU </memory-used>
+         <to-filter> . </to-filter>
+
+    rule <k> #functionCall(address) => ADDR ... </k>
+         <fn-args> .Expressions => . ... </fn-args>
+         <id> ADDR </id>
+         <to-filter> . </to-filter>
+
+    rule <k> #functionCall(balance) => BALANCE ... </k>
+         <fn-args> ADDR:Int => . ... </fn-args>
+         <account>
+            <account-id> ADDR </account-id>
+            <balance> BALANCE </balance>
+            ...
+         </account>
+         <to-filter> . </to-filter>
+
+    rule <k> #functionCall(selfbalance) => BALANCE ... </k>
+         <fn-args> .Expressions => . ... </fn-args>
+         <id> ADDR </id>
+         <account>
+            <account-id> ADDR </account-id>
+            <balance> BALANCE </balance>
+            ...
+         </account>
+         <to-filter> . </to-filter>
+
+    rule <k> #functionCall(caller) => ADDR ... </k>
+         <fn-args> .Expressions => . ... </fn-args>
+         <caller> ADDR </caller>
+         <to-filter> . </to-filter>
+
+    // TODO: gas, callvalue, calldataload, calldatacopy, codesize, codecopy, extcodesize
+    // TODO: extcodecopy, returndatasize, returndatacopy, extcodehash, create, create2, call, callcode, delegatecall, staticcall,
+    // TODO: return, revert, selfdestruct, invalid, log0, log1, log2, log3, log4,
+
+    rule <k> #functionCall(chainid) => CHAINID ... </k>
+         <fn-args> .Expressions => . ... </fn-args>
+         <chain-id> CHAINID </chain-id>
+         <to-filter> . </to-filter>
+
+    rule <k> #functionCall(basefee) => BASEFEE ... </k>
+         <fn-args> .Expressions => . ... </fn-args>
+         <base-fee> BASEFEE </base-fee>
+         <to-filter> . </to-filter>
+
+    rule <k> #functionCall(origin) => ORIGIN ... </k>
+         <fn-args> .Expressions => . ... </fn-args>
+         <origin> ORIGIN </origin>
+         <to-filter> . </to-filter>
+
+    rule <k> #functionCall(gasprice) => GASPRICE ... </k>
+         <fn-args> .Expressions => . ... </fn-args>
+         <gas-price> GASPRICE </gas-price>
+         <to-filter> . </to-filter>
+
+    // TODO: blockhash,
+
+    rule <k> #functionCall(coinbase) => COINBASE ... </k>
+         <fn-args> .Expressions => . ... </fn-args>
+         <coinbase> COINBASE </coinbase>
+         <to-filter> . </to-filter>
+
+    rule <k> #functionCall(timestamp) => TIMESTAMP ... </k>
+         <fn-args> .Expressions => . ... </fn-args>
+         <timestamp> TIMESTAMP </timestamp>
+         <to-filter> . </to-filter>
+
+    rule <k> #functionCall(number) => NUMBER ... </k>
+         <fn-args> .Expressions => . ... </fn-args>
+         <number> NUMBER </number>
+         <to-filter> . </to-filter>
+
+    rule <k> #functionCall(difficulty) => DIFFICULTY ... </k>
+         <fn-args> .Expressions => . ... </fn-args>
+         <difficulty> DIFFICULTY </difficulty>
+         <to-filter> . </to-filter>
+
+    // TODO: prevrandao
+
+    rule <k> #functionCall(gaslimit) => GASLIMIT ... </k>
+         <fn-args> .Expressions => . ... </fn-args>
+         <gas-limit> GASLIMIT </gas-limit>
+         <to-filter> . </to-filter>
+
+
     rule <k> #functionCall(ID:Identifier) => #prepareUserFunc(PARAMS, ARGS, BODY, .TypedIdentifierNeList) ... </k>
          <fn-args> ARGS:Expressions => . ... </fn-args>
          <funcs> ... ID |-> L ... </funcs>
@@ -615,10 +811,10 @@ module YUL
          <to-filter> . </to-filter>
 
 
-    rule <k> #argBind(ID:Identifier, PARAMS:TypedIdentifierList, VAL:Expression, ARGS:Expressions) => #let ID := #realStuff(VAL) ~> #argBind(PARAMS, ARGS) ... </k> 
+    rule <k> #argBind(ID:Identifier, PARAMS:TypedIdentifierList, VAL:Expression, ARGS:Expressions) => #let ID := #realStuff(VAL) ~> #argBind(PARAMS, ARGS) ... </k>
          <to-filter> . </to-filter>
 
-    rule <k> #argBind(ID:Identifier : _:TypeName, PARAMS:TypedIdentifierList, VAL:Expression, ARGS:Expressions) => #let ID := #realStuff(VAL) ~> #argBind(PARAMS, ARGS) ... </k> 
+    rule <k> #argBind(ID:Identifier : _:TypeName, PARAMS:TypedIdentifierList, VAL:Expression, ARGS:Expressions) => #let ID := #realStuff(VAL) ~> #argBind(PARAMS, ARGS) ... </k>
          <to-filter> . </to-filter>
 
     rule <k> #argBind(.TypedIdentifierList, .Expressions) => . ... </k>
@@ -634,7 +830,7 @@ module YUL
 
     rule <k> #toReturn(ID : _:TypeName, REST) => #evalReturn(ID) ~> #toReturn(REST) ... </k>
          <to-filter> . </to-filter>
-         
+
     rule <k> #toReturn(ID, REST) => #evalReturn(ID) ~> #toReturn(REST) ... </k>
          <to-filter> . </to-filter>
 
@@ -655,7 +851,7 @@ module YUL
 
     rule <k> #multi(.Expressions) => . ... </k>
          <to-filter> . </to-filter>
-    
+
     rule <k> #multi(EXPR:Expression, .Expressions) => EXPR ... </k>
          <to-filter> . </to-filter>
 
@@ -668,11 +864,11 @@ module YUL
 
 
     // Function hoisting
-    rule <to-filter> REST:Statement S:Statement => REST </to-filter>        
-         <filtered> .List => ListItem(S) ... </filtered>                
+    rule <to-filter> REST:Statement S:Statement => REST </to-filter>
+         <filtered> .List => ListItem(S) ... </filtered>
         when notBool isFunctionDefinition(S)                                                    [priority(0)]
-        
-    rule <to-filter> S:Statement => . </to-filter>                      
+
+    rule <to-filter> S:Statement => . </to-filter>
          <filtered> .List => ListItem(S) ... </filtered>
         when notBool isFunctionDefinition(S)                                                    [priority(4)]
 
