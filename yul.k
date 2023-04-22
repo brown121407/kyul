@@ -613,7 +613,8 @@ module YUL
     rule <k> #functionCall(xor) => W0 xorWord W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
 
-    // TODO: byte
+    rule <k> #functionCall(byte) => #byte(N, X) ... </k>
+         <fn-args> N:Int, X:Int => . ... </fn-args>
 
     rule <k> #functionCall(shl) => W0 <<Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
