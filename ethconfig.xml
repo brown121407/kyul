@@ -3,6 +3,8 @@
         <call-state>
             <id> 0 </id>
             <caller> 0 </caller>
+            <call-data> b"\xF0\xF1\xF2\xF3\xF4\xF5\xF6\xF7\xF8\xF9\xFA\xFB\xFC\xFD\xFE\xFF\xE0\xE1\xE2\xE3\xE4\xE5\xE6\xE7\xE8\xE9\xEA\xEB\xEC\xED\xEE\xEF" </call-data>
+            <call-value> 0 </call-value>
             <local-mem> .Bytes </local-mem>
             <memory-used> 0 </memory-used>
         </call-state>

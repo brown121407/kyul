@@ -307,6 +307,8 @@ module YUL-CONFIG
                 <call-state>
                     <id> 0 </id>
                     <caller> 0 </caller>
+                    <call-data> .Bytes </call-data>
+                    <call-value> 0 </call-value>
                     <local-mem> .Bytes </local-mem>
                     <memory-used> 0 </memory-used>
                 </call-state>
@@ -541,87 +543,114 @@ module YUL
     rule <k> #evalArg(ARG:Expression) => . ... </k>
          <fn-args> ARGS:Expressions => ARG, ARGS ... </fn-args>
 
-
+    // stop()
     rule <k> #functionCall(stop) ~> _ => . </k>
          <fn-args> .Expressions => . ... </fn-args>
 
+    // add(x, y)
     rule <k> #functionCall(add) => W0 +Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
 
+    // sub(x, y)
     rule <k> #functionCall(sub) => W0 -Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
 
+    // mul(x, y)
     rule <k> #functionCall(mul) => W0 *Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
 
+    // div(x, y)
     rule <k> #functionCall(div) => W0 /Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
 
+    // sdiv(x, y)
     rule <k> #functionCall(sdiv) => W0 /sWord W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
 
+    // mod(x, y)
     rule <k> #functionCall(mod) => W0 %Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
 
+    // smod(x, y)
     rule <k> #functionCall(smod) => W0 %sWord W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
 
+    // exp(x, y)
     rule <k> #functionCall(exp) => W0 ^Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
 
+    // not(x)
     rule <k> #functionCall(not) => ~Word W ... </k>
          <fn-args> W:Int => . ... </fn-args>
 
+    // lt(x, y)
     rule <k> #functionCall(lt) => W0 <Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
 
+    // gt(x, y)
     rule <k> #functionCall(gt) => W0 >Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
 
+    // slt(x, y)
     rule <k> #functionCall(slt) => W0 s<Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
 
+    // sgt(x, y)
     rule <k> #functionCall(sgt) => W1 s<Word W0 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
 
+    // eq(x, y)
     rule <k> #functionCall(eq) => W0 ==Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
 
+    // iszero(x)
     rule <k> #functionCall(iszero) => W ==Word 0 ... </k>
          <fn-args> W:Int, .Expressions => . ... </fn-args>
 
+    // and(x, y)
     rule <k> #functionCall(and) => W0 &Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
 
+    // or(x, y)
     rule <k> #functionCall(or) => W0 |Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
 
+    // xor(x, y)
     rule <k> #functionCall(xor) => W0 xorWord W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
 
+    // byte(n, x)
     rule <k> #functionCall(byte) => #byte(N, X) ... </k>
          <fn-args> N:Int, X:Int => . ... </fn-args>
 
+    // shl(x, y)
     rule <k> #functionCall(shl) => W0 <<Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
 
+    // shr(x, y)
     rule <k> #functionCall(shr) => W0 >>Word W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
 
+    // sar(x, y)
     rule <k> #functionCall(sar) => W0 >>sWord W1 ... </k>
          <fn-args> W0:Int, W1:Int => . ... </fn-args>
 
+    // addmod(x, y, m)
     rule <k> #functionCall(addmod) => (W0 +Int W1) %Word W2 ... </k>
          <fn-args> W0:Int, W1:Int, W2:Int => . ... </fn-args>
 
+    // mulmod(x, y, m)
     rule <k> #functionCall(mulmod) => (W0 *Int W1) %Word W2 ... </k>
          <fn-args> W0:Int, W1:Int, W2:Int => . ... </fn-args>
 
+    // signextend(i, x)
     rule <k> #functionCall(signextend) => #signextend(W0, W1) ... </k>
          <fn-args> W0:Int, W1:Int => . </fn-args>
 
     // FIXME:
     syntax Int ::= #keccak256(String) [function, hook(YUL.keccak256)]
+
+    // keccak256(p, n)
     rule <k> #functionCall(keccak256) => #keccak256(Bytes2String(b"\xFF\xFF\xFF\xFF")) ... </k>
          <fn-args> _:Int, _:Int => . ... </fn-args>
 
@@ -632,6 +661,7 @@ module YUL
          <local-mem> MEM => padRightBytes(MEM, NEWMU *Int 32, 0) </local-mem>
          <memory-used> _ => NEWMU </memory-used>
 
+    // mload(p)
     rule <k> #functionCall(mload) => Bytes2Int(substrBytes(MEM, ADDR, ADDR +Int 32), BE, Unsigned) ... </k>
          <fn-args> ADDR:Int, .Expressions => . ... </fn-args>
          <local-mem> MEM </local-mem>
@@ -643,7 +673,8 @@ module YUL
          <memory-used> MU </memory-used>
         requires (MU -Int 1) *Int 32 <Int ADDR
 
-    rule <k> #functionCall(mstore) => #multi(.Expressions) ... </k>
+    // mstore(p, v)
+    rule <k> #functionCall(mstore) => . ... </k>
          <fn-args> ADDR:Int, VAL:Int => . ... </fn-args>
          <local-mem> MEM => replaceAtBytes(MEM, ADDR, Int2Bytes(32, VAL, BE)) </local-mem>
          <memory-used> MU </memory-used>
@@ -654,7 +685,8 @@ module YUL
          <memory-used> MU </memory-used>
         requires (MU -Int 1) *Int 32 <Int ADDR
 
-    rule <k> #functionCall(mstore8) => #multi(.Expressions) ... </k>
+    // mstore8(p, v)
+    rule <k> #functionCall(mstore8) => . ... </k>
          <fn-args> ADDR:Int, VAL:Int => . ... </fn-args>
          <local-mem> MEM => MEM[ADDR <- VAL] </local-mem>
          <memory-used> MU </memory-used>
@@ -665,6 +697,7 @@ module YUL
          <memory-used> MU </memory-used>
         requires MU *Int 32 <=Int ADDR
 
+    // sload(p)
     rule <k> #functionCall(sload) => VAL ... </k>
          <fn-args> SLOT:Int, .Expressions => . ... </fn-args>
          <id> CONTRACT </id>
@@ -677,7 +710,8 @@ module YUL
     rule <k> #functionCall(sload) => 0 ... </k>
          <fn-args> _:Int, .Expressions => . ... </fn-args>       [owise]
 
-    rule <k> #functionCall(sstore) => #multi(.Expressions) ... </k>
+    // sstore(p, v)
+    rule <k> #functionCall(sstore) => . ... </k>
          <fn-args> SLOT:Int, 0 => . ... </fn-args>
          <id> CONTRACT </id>
          <account>
@@ -686,7 +720,7 @@ module YUL
             ...
          </account>
 
-    rule <k> #functionCall(sstore) => #multi(.Expressions) ... </k>
+    rule <k> #functionCall(sstore) => . ... </k>
          <fn-args> SLOT:Int, VAL:Int => . ... </fn-args>
          <id> CONTRACT </id>
          <account>
@@ -695,14 +729,17 @@ module YUL
             ...
          </account>                                                 [owise]
 
+    // msize()
     rule <k> #functionCall(msize) => 32 *Int MU ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <memory-used> MU </memory-used>
 
+    // address()
     rule <k> #functionCall(address) => ADDR ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <id> ADDR </id>
 
+    // balance(a)
     rule <k> #functionCall(balance) => BALANCE ... </k>
          <fn-args> ADDR:Int, .Expressions => . ... </fn-args>
          <account>
@@ -711,6 +748,7 @@ module YUL
             ...
          </account>
 
+    // selfbalance()
     rule <k> #functionCall(selfbalance) => BALANCE ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <id> ADDR </id>
@@ -720,53 +758,116 @@ module YUL
             ...
          </account>
 
+    // caller()
     rule <k> #functionCall(caller) => ADDR ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <caller> ADDR </caller>
 
-    /*
-    TODO: gas, callvalue, calldataload, calldatacopy, codesize, codecopy, extcodesize,
-        extcodecopy, returndatasize, returndatacopy, extcodehash, create, create2, call,
-        callcode, delegatecall, staticcall, return, revert, selfdestruct, invalid, log0,
-        log1, log2, log3, log4
-    */
+    // TODO: gas
 
+    // callvalue()
+    rule <k> #functionCall(callvalue) => CALLVALUE ... </k>
+         <fn-args> .Expressions => . ... </fn-args>
+         <call-value> CALLVALUE </call-value>
+
+    // calldataload(p)
+    rule <k> #functionCall(calldataload) => Bytes2Int(substrBytes(CALLDATA, OFFSET, OFFSET +Int 32), BE, Unsigned) ... </k>
+         <fn-args> OFFSET:Int, .Expressions => . ... </fn-args>
+         <call-data> CALLDATA </call-data>
+        requires OFFSET +Int 32 <=Int lengthBytes(CALLDATA)
+
+    rule <k> #functionCall(calldataload) => Bytes2Int(padRightBytes(substrBytes(CALLDATA, OFFSET, lengthBytes(CALLDATA)), 32, 0), BE, Unsigned) ... </k>
+         <fn-args> OFFSET:Int, .Expressions => . ... </fn-args>
+         <call-data> CALLDATA </call-data>
+        requires OFFSET <Int lengthBytes(CALLDATA) andBool OFFSET +Int 32 >Int lengthBytes(CALLDATA)
+
+    rule <k> #functionCall(calldataload) => 0 ... </k>
+         <fn-args> OFFSET:Int, .Expressions => . ... </fn-args>
+         <call-data> CALLDATA </call-data>
+        requires OFFSET >=Int lengthBytes(CALLDATA)
+
+    // calldatasize()
+    rule <k> #functionCall(calldatasize) => lengthBytes(CALLDATA) ... </k>
+         <fn-args> .Expressions => . ... </fn-args>
+         <call-data> CALLDATA </call-data>
+
+    // calldatacopy(t, f, s)
+    rule <k> #functionCall(calldatacopy) => . ... </k>
+         <fn-args> MEMADDR:Int, CDADDR:Int, NBYTES:Int => . ... </fn-args>
+         <call-data> CALLDATA </call-data>
+         <local-mem> MEM => replaceAtBytes(MEM, MEMADDR, substrBytes(CALLDATA, CDADDR, CDADDR +Int NBYTES)) </local-mem>
+         <memory-used> MU </memory-used>
+        requires (MEMADDR +Int NBYTES <=Int MU *Int 32) andBool (CDADDR +Int NBYTES <=Int lengthBytes(CALLDATA))
+
+    rule <k> #functionCall(calldatacopy) => . ... </k>
+         <fn-args> MEMADDR:Int, CDADDR:Int, NBYTES:Int => . ... </fn-args>
+         <call-data> CALLDATA </call-data>
+         <local-mem> MEM => replaceAtBytes(MEM, MEMADDR, padRightBytes(substrBytes(CALLDATA, CDADDR, lengthBytes(CALLDATA)), NBYTES, 0)) </local-mem>
+         <memory-used> MU </memory-used>
+        requires (MEMADDR +Int NBYTES <=Int MU *Int 32) andBool ((CDADDR <Int lengthBytes(CALLDATA)) andBool (CDADDR +Int NBYTES >Int lengthBytes(CALLDATA)))
+
+    rule <k> #functionCall(calldatacopy) => . ... </k>
+         <fn-args> MEMADDR:Int, CDADDR:Int, NBYTES:Int => . ... </fn-args>
+         <call-data> CALLDATA </call-data>
+         <local-mem> MEM => replaceAtBytes(MEM, MEMADDR, padRightBytes(.Bytes, NBYTES, 0)) </local-mem>
+         <memory-used> MU </memory-used>
+        requires (MEMADDR +Int NBYTES <=Int MU *Int 32) andBool (CDADDR >Int lengthBytes(CALLDATA))
+
+    rule <k> #functionCall(calldatacopy) => #expandMem((MEMADDR +Int NBYTES) /Int 32 +Int (#if ((MEMADDR +Int NBYTES) %Int 32) ==Int 0 #then 0 #else 1 #fi)) ~> #functionCall(calldatacopy) ... </k>
+         <fn-args> MEMADDR:Int, _:Int, NBYTES:Int ... </fn-args>
+         <memory-used> MU </memory-used>
+        requires MEMADDR +Int NBYTES >Int MU *Int 32
+
+
+    // TODO: codesize, codecopy, extcodesize, extcodecopy, returndatasize, returndatacopy,
+    // TODO: extcodehash, create, create2, call, callcode, delegatecall, staticcall, return,
+    // TODO: revert, selfdestruct, invalid, log0, log1, log2, log3, log4
+
+    // chainid()
     rule <k> #functionCall(chainid) => CHAINID ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <chain-id> CHAINID </chain-id>
 
+    // basefee()
     rule <k> #functionCall(basefee) => BASEFEE ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <base-fee> BASEFEE </base-fee>
 
+    // origin()
     rule <k> #functionCall(origin) => ORIGIN ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <origin> ORIGIN </origin>
 
+    // gasprice()
     rule <k> #functionCall(gasprice) => GASPRICE ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <gas-price> GASPRICE </gas-price>
 
     // TODO: blockhash
 
+    // coinbase()
     rule <k> #functionCall(coinbase) => COINBASE ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <coinbase> COINBASE </coinbase>
 
+    // timestamp()
     rule <k> #functionCall(timestamp) => TIMESTAMP ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <timestamp> TIMESTAMP </timestamp>
 
+    // number()
     rule <k> #functionCall(number) => NUMBER ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <number> NUMBER </number>
 
+    // difficulty()
     rule <k> #functionCall(difficulty) => DIFFICULTY ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <difficulty> DIFFICULTY </difficulty>
 
     // TODO: prevrandao
 
+    // gaslimit()
     rule <k> #functionCall(gaslimit) => GASLIMIT ... </k>
          <fn-args> .Expressions => . ... </fn-args>
          <gas-limit> GASLIMIT </gas-limit>
