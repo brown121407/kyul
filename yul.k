@@ -643,34 +643,57 @@ module YUL
          <memory-used> MU </memory-used>
         requires (MU -Int 1) *Int 32 <Int ADDR
 
-    // FIXME: mstore needs to work on byte addresses, not 32-byte slots (as implemented below)
-    // rule <k> #functionCall(mload) => 0 ... </k>
-    //      <fn-args> SLOT:Int, .Expressions => . ... </fn-args>
-    //      <local-mem> MEM => MEM [SLOT <- 0] </local-mem>
-    //      <memory-used> MU </memory-used>
-    //     requires (notBool (SLOT in_keys(MEM))) andBool (SLOT <Int MU)
+    rule <k> #functionCall(mstore) => #multi(.Expressions) ... </k>
+         <fn-args> ADDR:Int, VAL:Int => . ... </fn-args>
+         <local-mem> MEM => replaceAtBytes(MEM, ADDR, Int2Bytes(32, VAL, BE)) </local-mem>
+         <memory-used> MU </memory-used>
+        requires (MU -Int 1) *Int 32 >=Int ADDR
 
-    // rule <k> #functionCall(mload) => 0 ... </k>
-    //      <fn-args> SLOT:Int, .Expressions => . ... </fn-args>
-    //      <local-mem> MEM => MEM [SLOT <- 0] </local-mem>
-    //      <memory-used> MU => SLOT +Int 1 </memory-used>
-    //     requires SLOT >=Int MU
+    rule <k> #functionCall(mstore) => #expandMem(ADDR /Int 32 +Int (#if ADDR %Int 32 ==Int 0 #then 1 #else 2 #fi)) ~> #functionCall(mstore) ... </k>
+         <fn-args> ADDR:Int, _:Int ... </fn-args>
+         <memory-used> MU </memory-used>
+        requires (MU -Int 1) *Int 32 <Int ADDR
 
-    // rule <k> #functionCall(mstore) => #multi(.Expressions) ... </k>
-    //      <fn-args> SLOT:Int, VAL:Int => . ... </fn-args>
-    //      <local-mem> MEM => MEM [SLOT <- VAL] </local-mem>
-    //      <memory-used> MU </memory-used>
-    //     requires (SLOT in_keys(MEM)) orBool (SLOT <Int MU)
+    rule <k> #functionCall(mstore8) => #multi(.Expressions) ... </k>
+         <fn-args> ADDR:Int, VAL:Int => . ... </fn-args>
+         <local-mem> MEM => MEM[ADDR <- VAL] </local-mem>
+         <memory-used> MU </memory-used>
+        requires MU *Int 32 >Int ADDR
 
-    // rule <k> #functionCall(mstore) => #multi(.Expressions) ... </k>
-    //      <fn-args> SLOT:Int, VAL:Int => . ... </fn-args>
-    //      <local-mem> MEM => MEM [SLOT <- VAL] </local-mem>
-    //      <memory-used> MU => SLOT +Int 1 </memory-used>
-    //     requires SLOT >=Int MU
+    rule <k> #functionCall(mstore8) => #expandMem(ADDR /Int 32 +Int 1) ~> #functionCall(mstore8) ... </k>
+         <fn-args> ADDR:Int, _:Int ... </fn-args>
+         <memory-used> MU </memory-used>
+        requires MU *Int 32 <=Int ADDR
 
-    // TODO: mstore8,
+    rule <k> #functionCall(sload) => VAL ... </k>
+         <fn-args> SLOT:Int, .Expressions => . ... </fn-args>
+         <id> CONTRACT </id>
+         <account>
+            <account-id> CONTRACT </account-id>
+            <storage> ... SLOT |-> VAL ... </storage>
+            ...
+         </account>
 
-    // TODO: sload, sstore
+    rule <k> #functionCall(sload) => 0 ... </k>
+         <fn-args> _:Int, .Expressions => . ... </fn-args>       [owise]
+
+    rule <k> #functionCall(sstore) => #multi(.Expressions) ... </k>
+         <fn-args> SLOT:Int, 0 => . ... </fn-args>
+         <id> CONTRACT </id>
+         <account>
+            <account-id> CONTRACT </account-id>
+            <storage> STORAGE => STORAGE[SLOT <- undef] </storage>
+            ...
+         </account>
+
+    rule <k> #functionCall(sstore) => #multi(.Expressions) ... </k>
+         <fn-args> SLOT:Int, VAL:Int => . ... </fn-args>
+         <id> CONTRACT </id>
+         <account>
+            <account-id> CONTRACT </account-id>
+            <storage> STORAGE => STORAGE[SLOT <- VAL] </storage>
+            ...
+         </account>                                                 [owise]
 
     rule <k> #functionCall(msize) => 32 *Int MU ... </k>
          <fn-args> .Expressions => . ... </fn-args>
