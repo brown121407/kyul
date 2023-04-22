@@ -651,8 +651,16 @@ module YUL
     syntax Int ::= #keccak256(String) [function, hook(YUL.keccak256)]
 
     // keccak256(p, n)
-    rule <k> #functionCall(keccak256) => #keccak256(Bytes2String(b"\xFF\xFF\xFF\xFF")) ... </k>
-         <fn-args> _:Int, _:Int => . ... </fn-args>
+    rule <k> #functionCall(keccak256) => #keccak256(Bytes2String(substrBytes(MEM, ADDR, ADDR +Int NBYTES))) ... </k>
+         <fn-args> ADDR:Int, NBYTES:Int => . ... </fn-args>
+         <local-mem> MEM </local-mem>
+         <memory-used> MU </memory-used>
+        requires ADDR +Int NBYTES <=Int MU *Int 32
+
+    rule <k> #functionCall(keccak256) => #expandMem((ADDR +Int NBYTES) /Int 32 +Int (#if ((ADDR +Int NBYTES) %Int 32) ==Int 0 #then 0 #else 1 #fi)) ~> #functionCall(keccak256) ... </k>
+         <fn-args> ADDR:Int, NBYTES:Int ... </fn-args>
+         <memory-used> MU </memory-used>
+        requires ADDR +Int NBYTES >Int MU *Int 32
 
     // TODO: pc, pop
 
