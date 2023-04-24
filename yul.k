@@ -19,7 +19,7 @@ with KYUL. If not, see <https://www.gnu.org/licenses/>.
 
 requires "word.k"
 
-module YUL-SYNTAX
+module YUL-SYNTAX-COMMON
     imports UNSIGNED-INT-SYNTAX
     imports STRING-SYNTAX
 
@@ -62,7 +62,6 @@ module YUL-SYNTAX
     syntax FunctionCall ::= Identifier "(" Expressions ")"
     syntax Expressions ::= List{Expression, ","}    // also works as FunctionArgs
 
-    // FIXME: Find a way to add $ to the start of identifiers without messing up the builtin $PGM variable.
     syntax Identifier ::= "stop"                                 [token]
                         | "add"                                  [token]
                         | "sub"                                  [token]
@@ -140,7 +139,6 @@ module YUL-SYNTAX
                         | "difficulty"                           [token]
                         | "prevrandao"                           [token]
                         | "gaslimit"                             [token]
-                        | r"[a-zA-Z_][a-zA-Z_$0-9.]*"            [token]
     syntax IdentifierNeList ::= NeList{Identifier, ","}
     syntax TypeName ::= "u256"  // The only type available in the EVM dialect.
     syntax TypedIdentifier ::= Identifier
@@ -181,6 +179,12 @@ module YUL-SYNTAX
     syntax Pgm ::= Object | Block
 endmodule
 
+module YUL-SYNTAX
+    imports YUL-SYNTAX-COMMON
+
+    syntax Identifier ::= r"[a-zA-Z_$][a-zA-Z_$0-9.]*"           [token]
+endmodule
+
 module YUL-UTILS
     imports MAP
     imports LIST
@@ -191,7 +195,7 @@ module YUL-UTILS
     imports BYTES
     imports K-REFLECTION
     imports WORD
-    imports YUL-SYNTAX
+    imports YUL-SYNTAX-COMMON
 
     syntax KResult ::= Int
                      | Multi
