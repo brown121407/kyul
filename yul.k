@@ -154,14 +154,7 @@ module YUL-SYNTAX-COMMON
                      | LiteralUntyped ":" TypeName
 
     syntax NumberLiteral ::= HexNumber | DecimalNumber
-    // TODO: Limit StringLiteral to 32 chars.
     syntax StringLiteral ::= String
-    // TODO: Solve the issue with the regex below. It makes using config attributes impossible:
-    // [Error] Inner Parser: Parse error: unexpected token '"*"' following token '='.
-    //     Source(/mnt/c/Users/brown/Code/kyul/yul.k)
-    //     Location(112,31,112,34)
-    //     112 |               <foo multiplicity="*" type="Map"></foo>
-    // syntax StringLiteral ::= r"[\\\"]([^\\\"\\r\\n\\\\]|\\\\.)*[\\\"]"                  [token]
     syntax TrueLiteral ::= "true"
     syntax FalseLiteral ::= "false"
     syntax HexNumber ::= r"0x[0-9a-fA-F]+"                                              [token]
@@ -223,6 +216,7 @@ module YUL-UTILS
     syntax Error ::= #error(String)
                    | #syntaxError(String)
                    | #declarationError(String)
+                   | #typeError(String)
 
     syntax RealStuff ::= Expression
                        | Multi
@@ -244,6 +238,8 @@ module YUL-UTILS
                         | #checkNamesFunc(TypedIdentifierList, TypedIdentifierNeList, Block)
                         | "#popBlockNames"
                         | #reserveName(Identifier)
+    syntax CheckStrings ::= #checkStringsTop(Pgm)
+                          | #checkStrings(Statement)
 
     syntax ToFilter ::= #toFilter(Statement)
 endmodule
@@ -291,7 +287,7 @@ module YUL-CONFIG
     syntax LoadEthConfig ::= #loadEthConfig(EthereumCell)
 
     configuration <yul>
-        <k> #loadEthConfig($ETHCONFIG) ~> #checkNamesTop($PGM) ~> #allowLoopControlTop($PGM) ~> #start ~> $PGM:Pgm </k>
+        <k> #loadEthConfig($ETHCONFIG) ~> #checkNamesTop($PGM) ~> #allowLoopControlTop($PGM) ~> #checkStringsTop($PGM) ~> #start ~> $PGM:Pgm </k>
         <env>
             <vars> .Map </vars>
             <funcs> .Map </funcs>
@@ -305,6 +301,13 @@ module YUL-CONFIG
             <block-names> .List </block-names>
             <all-names> .Set </all-names>
         </reserved-names>
+
+        // TODO: remove this
+        // <preprocessing>
+        //     <check-names> . </check-names>
+        //     <loop-control> . </loop-control>
+        //     <check-strings> . </check-strings>
+        // </preprocessing>
 
         <ethereum>
             <evm>
@@ -417,6 +420,27 @@ module YUL
         requires notBool (ID in ALLNAMES)
 
     rule <k> #reserveName(ID) => #declarationError("Variable name " +String #unparseKORE(ID) +String " already taken in this scope.") ... </k>   [owise]
+
+
+    rule <k> #checkStringsTop(B:Block) => #checkStrings(B) ... </k>
+    rule <k> #checkStrings({ }) => . ... </k>
+    rule <k> #checkStrings({ S }) => #checkStrings(S) ... </k>
+    rule <k> #checkStrings(REST:Statement S:Statement) => #checkStrings(REST) ~> #checkStrings(S) ... </k>
+    rule <k> #checkStrings(function _ ( _ ) BODY) => #checkStrings(BODY) ... </k>
+    rule <k> #checkStrings(function _ ( _ ) -> _ BODY) => #checkStrings(BODY) ... </k>
+    rule <k> #checkStrings(for INIT COND POST BODY) => #checkStrings(INIT) ~> #checkStrings(COND) ~> #checkStrings(POST) ~> #checkStrings(BODY) ... </k>
+    rule <k> #checkStrings(if COND BLOCK) => #checkStrings(COND) ~> #checkStrings(BLOCK) ... </k>
+    rule <k> #checkStrings(switch EXPR case CASEXPR BLOCK REST:Cases) => #checkStrings(CASEXPR) ~> #checkStrings(BLOCK) ~> #checkStrings(switch EXPR REST) ... </k>
+    rule <k> #checkStrings(switch EXPR case CASEXPR BLOCK REST:Cases DEFAULT:Default) => #checkStrings(CASEXPR) ~> #checkStrings(BLOCK) ~> #checkStrings(switch EXPR REST DEFAULT) ... </k>
+    rule <k> #checkStrings(switch EXPR .Cases) => #checkStrings(EXPR) ... </k>
+    rule <k> #checkStrings(switch EXPR .Cases default BLOCK) => #checkStrings(EXPR) ~> #checkStrings(BLOCK) ... </k>
+    rule <k> #checkStrings(switch EXPR default BLOCK) => #checkStrings(EXPR) ~> #checkStrings(BLOCK) ... </k>
+    rule <k> #checkStrings(let _, _:TypedIdentifierNeList := EXPR) => #checkStrings(EXPR) ... </k>
+    rule <k> #checkStrings(let _ : _, _:TypedIdentifierNeList := EXPR) => #checkStrings(EXPR) ... </k>
+    rule <k> #checkStrings(FUN:Identifier (ARG:Expression, ARGS:Expressions)) => #checkStrings(ARG) ~> #checkStrings(FUN (ARGS)) ... </k>
+    rule <k> #checkStrings(STR:StringLiteral) => #typeError("String literal too long") ... </k>
+        requires lengthBytes(String2Bytes({STR}:>String)) >Int 32
+    rule <k> #checkStrings(_) => . ... </k>  [owise]
 
 
     rule <k> #start ~> { } => . </k>
