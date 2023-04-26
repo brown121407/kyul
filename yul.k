@@ -435,7 +435,6 @@ module YUL
          <store> ... L |-> VAL:Int ... </store>
 
 
-    // TODO: How to prevent the user from writing #internals in $PGM?
     syntax String ::= #hexNumberToString(HexNumber) [function, hook(STRING.token2string)]
     syntax Int ::= #hexNumberStringToInt(String) [function]
 
