@@ -151,7 +151,6 @@ module YUL-SYNTAX-COMMON
                         | TrueLiteral
                         | FalseLiteral
     syntax Literal ::= LiteralUntyped
-                     // TODO: Typed Literals
                      | LiteralUntyped ":" TypeName
 
     syntax NumberLiteral ::= HexNumber | DecimalNumber
@@ -445,6 +444,8 @@ module YUL
     rule <k> _:TrueLiteral => 1 ... </k>
 
     rule <k> STR:StringLiteral => Bytes2Int(padRightBytes(String2Bytes({STR}:>String), 32, 0), BE, Unsigned) ... </k>
+
+    rule <k> LIT:LiteralUntyped : _:TypeName => LIT ... </k>
 
     rule <k> if 0 _ => . ... </k>
     rule <k> if _ BLOCK => BLOCK ... </k> [owise]
