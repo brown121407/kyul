@@ -691,7 +691,11 @@ module YUL
          <memory-used> MU </memory-used>
         requires ADDR +Int NBYTES >Int MU *Int 32
 
-    // TODO: pc, pop
+    // TODO: pc
+
+    // pop(x)
+    rule <k> #functionCall(pop) => . ... </k>
+         <fn-args> _:Int, .Expressions => . ... </fn-args>
 
     syntax ExpandMem ::= #expandMem(to: Int)
     rule <k> #expandMem(NEWMU) => . ... </k>
