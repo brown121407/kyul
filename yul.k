@@ -447,7 +447,7 @@ module YUL
 
     rule <k> #start ~> { S:Statement } => #toFilter(S) </k>
 
-    rule <k> { } => . ... </k>                                          [structural]
+    rule <k> { } => . ... </k>  [structural]
 
     rule <k> { S:Statement } => #toFilter(S) ~> #envRestore(VARS, FUNCS) ... </k>
          <vars> VARS </vars>
@@ -458,8 +458,8 @@ module YUL
          <store> ... L |-> VAL:Int ... </store>
 
 
-    syntax String ::= #hexNumberToString(HexNumber) [function, hook(STRING.token2string)]
-    syntax Int ::= #hexNumberStringToInt(String) [function]
+    syntax String ::= #hexNumberToString(HexNumber)     [function, hook(STRING.token2string)]
+    syntax Int ::= #hexNumberStringToInt(String)        [function]
 
     rule <k> X:HexNumber => #hexNumberStringToInt(#hexNumberToString(X)) ... </k>
     rule #hexNumberStringToInt(S) => String2Base(replaceAll(S, "0x", ""), 16)
@@ -476,10 +476,10 @@ module YUL
 
     rule <k> for { S } COND POST BODY => S ~> #for(COND, POST, BODY) ~> #envRestore(VARS, FUNCS) ~> #endFor(for { } COND POST BODY) ... </k>
          <vars> VARS </vars>
-         <funcs> FUNCS </funcs> [structural]
+         <funcs> FUNCS </funcs>     [structural]
     rule <k> for { } COND POST BODY => #for(COND, POST, BODY) ~> #envRestore(VARS, FUNCS) ~> #endFor(for { } COND POST BODY) ... </k>
          <vars> VARS </vars>
-         <funcs> FUNCS </funcs> [structural]
+         <funcs> FUNCS </funcs>     [structural]
 
     rule <k> #for(COND, _, _) #as FOR:RealFor => #evalForCond(COND) ~> FOR ... </k>
 
@@ -490,56 +490,43 @@ module YUL
 
     rule <k> #endFor(_) => . ... </k> [structural]
 
-    rule <k> break ~> #envRestore(VARS, FUNCS) ~> #endFor(_) => #envRestore(VARS, FUNCS) ... </k> [structural]
-    rule <k> break ~> _:KItem => break ... </k> [priority(51), structural]
+    rule <k> break ~> #envRestore(VARS, FUNCS) ~> #endFor(_) => #envRestore(VARS, FUNCS) ... </k>   [structural]
+    rule <k> break ~> _:KItem => break ... </k>                                                     [priority(51), structural]
 
     rule <k> continue ~> #envRestore(VARS, FUNCS) ~> #endFor((for { } _ POST _) #as LOOP) => POST ~> LOOP ~> #envRestore(VARS, FUNCS) ~> #endFor(LOOP) ... </k> [structural]
-    rule <k> continue ~> _:KItem => continue ... </k> [priority(51), structural]
+    rule <k> continue ~> _:KItem => continue ... </k>                                                                                                           [priority(51), structural]
 
 
-    rule <k> #switch(EXPR, EXPR, BLOCK, _) => BLOCK ... </k> [structural]
+    rule <k> #switch(EXPR, EXPR, BLOCK, _) => BLOCK ... </k>    [structural]
+    rule <k> #switch(_, _, _, SWITCH) => SWITCH ... </k>        [structural, owise]
 
-    rule <k> #switch(_, _, _, SWITCH) => SWITCH ... </k> [structural, owise]
-
-    rule <k> switch EXPR case CASEEXPR BLOCK CASES:Cases => #switch(EXPR, CASEEXPR, BLOCK, switch EXPR CASES) ... </k> [structural]
-
-    rule <k> switch EXPR case CASEEXPR BLOCK CASES:Cases DEFAULT:Default => #switch(EXPR, CASEEXPR, BLOCK, switch EXPR CASES DEFAULT) ... </k> [structural]
-
-    rule <k> switch _ .Cases => . ... </k> [structural]
-
-    rule <k> switch _ .Cases default BLOCK => BLOCK ... </k> [structural]
-
-    rule <k> switch _ default BLOCK => BLOCK ... </k> [structural]
+    rule <k> switch EXPR case CASEEXPR BLOCK CASES:Cases => #switch(EXPR, CASEEXPR, BLOCK, switch EXPR CASES) ... </k>                          [structural]
+    rule <k> switch EXPR case CASEEXPR BLOCK CASES:Cases DEFAULT:Default => #switch(EXPR, CASEEXPR, BLOCK, switch EXPR CASES DEFAULT) ... </k>  [structural]
+    rule <k> switch _ .Cases => . ... </k>                                                                                                      [structural]
+    rule <k> switch _ .Cases default BLOCK => BLOCK ... </k>                                                                                    [structural]
+    rule <k> switch _ default BLOCK => BLOCK ... </k>                                                                                           [structural]
 
 
-    rule <k> let IDS => #let IDS ... </k> [structural]
+    rule <k> let IDS => #let IDS ... </k>                           [structural]
+    rule <k> let IDS := E => #let IDS := #realStuff(E) ... </k>     [structural]
 
-    rule <k> let IDS := E => #let IDS := #realStuff(E) ... </k> [structural]
-
-    rule <k> IDS := E => #assign IDS := #realStuff(E) ... </k> [structural]
-
-
-    rule <k> #let ID:Identifier : _:TypeName, IDS:TypedIdentifierNeList => #let ID, IDS ... </k> [structural]
-
-    rule <k> #let ID , IDS:TypedIdentifierNeList => #letBind(ID, 0) ~> #let IDS ... </k> [structural]
-
-    rule <k> #let .TypedIdentifierNeList => . ... </k> [structural]
+    rule <k> IDS := E => #assign IDS := #realStuff(E) ... </k>      [structural]
 
 
-    rule <k> #let ID:Identifier : _:TypeName, IDS:TypedIdentifierNeList := #realStuff(RS) => #let ID, IDS := #realStuff(RS) ... </k> [structural]
+    rule <k> #let ID:Identifier : _:TypeName, IDS:TypedIdentifierNeList => #let ID, IDS ... </k>    [structural]
+    rule <k> #let ID , IDS:TypedIdentifierNeList => #letBind(ID, 0) ~> #let IDS ... </k>            [structural]
+    rule <k> #let .TypedIdentifierNeList => . ... </k>                                              [structural]
 
-    rule <k> #let ID , IDS:TypedIdentifierNeList := #realStuff(#multi(E:Expression, REST)) => #letBind(ID, E) ~> #let IDS := #realStuff(#multi(REST)) ... </k> [structural]
 
-    rule <k> #let .TypedIdentifierNeList := #realStuff(#multi(.Expressions)) => . ... </k> [structural]
-
-    rule <k> #let ID , .TypedIdentifierNeList := #realStuff(E:Expression) => #letBind(ID, E) ... </k> [structural]
+    rule <k> #let ID:Identifier : _:TypeName, IDS:TypedIdentifierNeList := #realStuff(RS) => #let ID, IDS := #realStuff(RS) ... </k>                            [structural]
+    rule <k> #let ID , IDS:TypedIdentifierNeList := #realStuff(#multi(E:Expression, REST)) => #letBind(ID, E) ~> #let IDS := #realStuff(#multi(REST)) ... </k>  [structural]
+    rule <k> #let .TypedIdentifierNeList := #realStuff(#multi(.Expressions)) => . ... </k>                                                                      [structural]
+    rule <k> #let ID , .TypedIdentifierNeList := #realStuff(E:Expression) => #letBind(ID, E) ... </k>                                                           [structural]
 
 
     rule <k> #assign ID, IDS:IdentifierNeList := #realStuff(#multi(E:Expression, REST)) => #bind(ID, E) ~> #assign IDS := #realStuff(#multi(REST)) ... </k> [structural]
-
-    rule <k> #assign .IdentifierNeList := #realStuff(#multi(.Expressions)) => . ... </k> [structural]
-
-    rule <k> #assign ID, .IdentifierNeList := #realStuff(E:Expression) => #bind(ID, E) ... </k> [structural]
+    rule <k> #assign .IdentifierNeList := #realStuff(#multi(.Expressions)) => . ... </k>                                                                    [structural]
+    rule <k> #assign ID, .IdentifierNeList := #realStuff(E:Expression) => #bind(ID, E) ... </k>                                                             [structural]
 
 
     rule <k> #letBind(ID, VAL:Int) => . ... </k>
@@ -931,9 +918,7 @@ module YUL
 
 
     rule <k> #argBind(ID:Identifier, PARAMS:TypedIdentifierList, VAL:Expression, ARGS:Expressions) => #let ID := #realStuff(VAL) ~> #argBind(PARAMS, ARGS) ... </k>
-
     rule <k> #argBind(ID:Identifier : _:TypeName, PARAMS:TypedIdentifierList, VAL:Expression, ARGS:Expressions) => #let ID := #realStuff(VAL) ~> #argBind(PARAMS, ARGS) ... </k>
-
     rule <k> #argBind(.TypedIdentifierList, .Expressions) => . ... </k>
 
 
@@ -941,9 +926,7 @@ module YUL
 
 
     rule <k> #toReturn(.TypedIdentifierNeList) => #fetchReturns ~> #multi(.Expressions) ... </k>
-
     rule <k> #toReturn(ID : _:TypeName, REST) => #evalReturn(ID) ~> #toReturn(REST) ... </k>
-
     rule <k> #toReturn(ID, REST) => #evalReturn(ID) ~> #toReturn(REST) ... </k>
 
 
@@ -959,13 +942,11 @@ module YUL
 
 
     rule <k> #multi(.Expressions) => . ... </k>
-
     rule <k> #multi(EXPR:Expression, .Expressions) => EXPR ... </k>
 
 
-    rule <k> leave ~> #funcEnd => #funcEnd ... </k>                                         [priority(51), structural]
-
-    rule <k> leave ~> _:KItem => leave ... </k>                                         [priority(52), structural]
+    rule <k> leave ~> #funcEnd => #funcEnd ... </k>     [priority(51), structural]
+    rule <k> leave ~> _:KItem => leave ... </k>         [priority(52), structural]
 
 
     // Function hoisting
