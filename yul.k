@@ -23,7 +23,7 @@ module YUL-SYNTAX-COMMON
     imports UNSIGNED-INT-SYNTAX
     imports STRING-SYNTAX
 
-    syntax Block ::= "{" Statement "}" | "{" "}"            [klabel("Block"), symbol]
+    syntax Block ::= "{" Statement "}" | "{" "}"
     // FIXME: The parses is too dumb to work with List{Statement, ""}, and this stuff is
     // only mentioned in passing in a comment at https://kframework.org/k-distribution/pl-tutorial/2_languages/1_simple/1_untyped/simple-untyped/
     // syntax Statements ::= List{Statement, ""}
@@ -302,13 +302,6 @@ module YUL-CONFIG
             <all-names> .Set </all-names>
         </reserved-names>
 
-        // TODO: remove this
-        // <preprocessing>
-        //     <check-names> . </check-names>
-        //     <loop-control> . </loop-control>
-        //     <check-strings> . </check-strings>
-        // </preprocessing>
-
         <ethereum>
             <evm>
                 <call-state>
@@ -533,7 +526,7 @@ module YUL
          <vars> VARS:Map => VARS[ID <- !L:Int] </vars>
          <store> ... .Map => !L |-> VAL ... </store>
          <funcs> FUNCS </funcs>
-        when (notBool (ID in_keys(VARS))) andBool (notBool (ID in_keys(FUNCS)))
+        requires (notBool (ID in_keys(VARS))) andBool (notBool (ID in_keys(FUNCS)))
 
     rule <k> #bind(ID, VAL:Int) => . ... </k>
          <vars> ... ID |-> L ... </vars>
@@ -951,10 +944,10 @@ module YUL
 
     // Function hoisting
     rule <k> #toFilter(REST:Statement S:Statement) => #toFilter(REST) ~> S ... </k>
-        when notBool isFunctionDefinition(S)                                                                [priority(0)]
+        requires notBool isFunctionDefinition(S)                                                                [priority(0)]
 
     rule <k> #toFilter(S:Statement) => S ... </k>
-        when notBool isFunctionDefinition(S)                                                                [priority(4)]
+        requires notBool isFunctionDefinition(S)                                                                [priority(4)]
 
     rule <k> #toFilter(REST:Statement FD:FunctionDefinition) => #hoist(FD) ~> #toFilter(REST) ... </k>      [priority(1), structural]
     rule <k> #toFilter(FD:FunctionDefinition) => #hoist(FD) ... </k>                                        [priority(2), structural]
@@ -963,11 +956,11 @@ module YUL
          <funcs> FUNCS => FUNCS[ID <- !L:Int] </funcs>
          <store> ... .Map => !L |-> (function ID ( PARAMS ) -> RETURNS BLOCK) ... </store>
          <vars> VARS </vars>
-        when (notBool (ID in_keys(FUNCS))) andBool (notBool (ID in_keys(VARS)))
+        requires (notBool (ID in_keys(FUNCS))) andBool (notBool (ID in_keys(VARS)))
 
     rule <k> #hoist(function ID ( PARAMS ) BLOCK) => . ... </k>
          <funcs> FUNCS => FUNCS[ID <- !L:Int] </funcs>
          <store> ... .Map => !L |-> (function ID ( PARAMS ) BLOCK) ... </store>
          <vars> VARS </vars>
-        when (notBool (ID in_keys(FUNCS))) andBool (notBool (ID in_keys(VARS)))
+        requires (notBool (ID in_keys(FUNCS))) andBool (notBool (ID in_keys(VARS)))
 endmodule
