@@ -230,19 +230,19 @@ module YUL-UTILS
 
     syntax RealSwitch ::= #switch(Expression, Expression, Block, Switch)    [strict(2)]
 
-    syntax AllowLoopControl ::= #allowLoopControlTop(Pgm)
-                              | #allowLoopControl(Bool, Statement)
-
-    syntax CheckNames ::= #checkNamesTop(Pgm)
-                        | #checkNames(Statement)
-                        | #checkNamesFunc(TypedIdentifierList, TypedIdentifierNeList, Block)
-                        | "#popBlockNames"
-                        | "#pushBlockNames"
-                        | #reserveName(Identifier)
-    syntax CheckStrings ::= #checkStringsTop(Pgm)
-                          | #checkStrings(Statement)
-
+    syntax Check ::= #checkTop(Pgm)
+                   | #check(Statement)
+                   | #checkExitFn(Bool, Bool)
+                   | #checkNoFns(Statement)
+                   | "#checkBcAllowed"
+                   | "#checkBcDisallowed"
+                   | #checkBcRestore(Bool)
+                   | #reserveName(Identifier)
+                   | #checkNamesFunc(TypedIdentifierList, TypedIdentifierNeList)
+                   | "#popBlockNames"
+                   | "#pushBlockNames"
     syntax ToFilter ::= #toFilter(Statement)
+    syntax String ::= #IdToString(Identifier) [function, hook(STRING.token2string)]
 endmodule
 
 module YUL-CONFIG
@@ -288,7 +288,7 @@ module YUL-CONFIG
     syntax LoadEthConfig ::= #loadEthConfig(EthereumCell)
 
     configuration <yul>
-        <k> #loadEthConfig($ETHCONFIG) ~> #checkNamesTop($PGM) ~> #allowLoopControlTop($PGM) ~> #checkStringsTop($PGM) ~> #start ~> $PGM:Pgm </k>
+        <k> #loadEthConfig($ETHCONFIG) ~> #checkTop($PGM) ~> #start ~> $PGM:Pgm </k>
         <env>
             <vars> .Map </vars>
             <funcs> .Map </funcs>
@@ -298,10 +298,16 @@ module YUL-CONFIG
             <fn-args> . </fn-args>
             <return> .List </return>
         </evaluation>
-        <reserved-names>
-            <block-names> .List </block-names>
-            <all-names> .Set </all-names>
-        </reserved-names>
+
+        <checking>
+            <check-bc> false:Bool </check-bc>
+            <check-leave> false:Bool </check-leave>
+            <reserved-names>
+                <block-names> .List </block-names>
+                <all-names> .Set </all-names>
+            </reserved-names>
+        </checking>
+
 
         <ethereum>
             <evm>
@@ -351,51 +357,9 @@ module YUL
     rule <k> #loadEthConfig(ETHCONFIG) => . ... </k>
          (<ethereum> _ </ethereum> => ETHCONFIG)
 
-    rule <k> #allowLoopControlTop(B:Block) => #allowLoopControl(false, B) ... </k>
-
-    rule <k> #allowLoopControl(_, { }) => . ... </k>
-    rule <k> #allowLoopControl(B, { S }) => #allowLoopControl(B, S) ... </k>
-    rule <k> #allowLoopControl(B, REST:Statement S:Statement) => #allowLoopControl(B, REST) ~> #allowLoopControl(B, S) ... </k>
-    rule <k> #allowLoopControl(_, function _ ( _ ) BODY) => #allowLoopControl(false, BODY) ... </k>
-    rule <k> #allowLoopControl(_, function _ ( _ ) -> _ BODY) => #allowLoopControl(false, BODY) ... </k>
-    rule <k> #allowLoopControl(_, for INIT _ POST BODY) => #allowLoopControl(false, INIT) ~> #allowLoopControl(false, POST) ~> #allowLoopControl(true, BODY) ... </k>
-    rule <k> #allowLoopControl(B, if _ BLOCK) => #allowLoopControl(B, BLOCK) ... </k>
-    rule <k> #allowLoopControl(B, switch EXPR case _ BLOCK REST:Cases) => #allowLoopControl(B, BLOCK) ~> #allowLoopControl(B, switch EXPR REST) ... </k>
-    rule <k> #allowLoopControl(B, switch EXPR case _ BLOCK REST:Cases DEFAULT:Default) => #allowLoopControl(B, BLOCK) ~> #allowLoopControl(B, switch EXPR REST DEFAULT) ... </k>
-    rule <k> #allowLoopControl(_, switch _ .Cases) => . ... </k>
-    rule <k> #allowLoopControl(B, switch _ .Cases default BLOCK) => #allowLoopControl(B, BLOCK) ... </k>
-    rule <k> #allowLoopControl(B, switch _ default BLOCK) => #allowLoopControl(B, BLOCK) ... </k>
-    rule <k> #allowLoopControl(false, break) => #syntaxError("break is only allowed in a for loop's body.") ... </k>
-    rule <k> #allowLoopControl(false, continue) => #syntaxError("continue is only allowed in a for loop's body.") ... </k>
-    rule <k> #allowLoopControl(_, _) => . ... </k>  [owise]
-
-
-    rule <k> #checkNamesTop(B:Block) => #checkNames(B) ... </k>
-
-    rule <k> #checkNames({ }) => . ... </k>
-    rule <k> #checkNames({ S }) => #pushBlockNames ~> #checkNames(S) ~> #popBlockNames ... </k>
-    rule <k> #checkNames(REST:Statement S:Statement) => #checkNames(REST) ~> #checkNames(S) ... </k>
-    rule <k> #checkNames(let ID, IDS:TypedIdentifierNeList) => #reserveName(ID) ~> #checkNames(let IDS) ... </k>
-    rule <k> #checkNames(let ID : _, IDS:TypedIdentifierNeList) => #reserveName(ID) ~> #checkNames(let IDS) ... </k>
-    rule <k> #checkNames(let ID, IDS:TypedIdentifierNeList := _) => #reserveName(ID) ~> #checkNames(let IDS) ... </k>
-    rule <k> #checkNames(let ID : _, IDS:TypedIdentifierNeList := _) => #reserveName(ID) ~> #checkNames(let IDS) ... </k>
-    rule <k> #checkNames(let .TypedIdentifierNeList) => . ... </k>
-    rule <k> #checkNames(function ID ( PARAMS ) BODY) => #reserveName(ID) ~> #pushBlockNames ~> #checkNamesFunc(PARAMS, .TypedIdentifierNeList, BODY) ~> #popBlockNames ... </k>
-    rule <k> #checkNames(function ID ( PARAMS ) -> RETURNS BODY) => #reserveName(ID) ~> #pushBlockNames ~> #checkNamesFunc(PARAMS, RETURNS, BODY) ~> #popBlockNames ... </k>
-    rule <k> #checkNames(for INIT _ POST BODY) => #checkNames(INIT) ~> #checkNames(POST) ~> #checkNames(BODY) ... </k>
-    rule <k> #checkNames(if _ BLOCK) => #checkNames(BLOCK) ... </k>
-    rule <k> #checkNames(switch EXPR case _ BLOCK REST:Cases) => #checkNames(BLOCK) ~> #checkNames(switch EXPR REST) ... </k>
-    rule <k> #checkNames(switch EXPR case _ BLOCK REST:Cases DEFAULT:Default) => #checkNames(BLOCK) ~> #checkNames(switch EXPR REST DEFAULT) ... </k>
-    rule <k> #checkNames(switch _ .Cases) => . ... </k>
-    rule <k> #checkNames(switch _ .Cases default BLOCK) => #checkNames(BLOCK) ... </k>
-    rule <k> #checkNames(switch _ default BLOCK) => #checkNames(BLOCK) ... </k>
-    rule <k> #checkNames(_) => . ... </k>   [owise]
-
-    rule <k> #checkNamesFunc(PARAM, PARAMS:TypedIdentifierList, RETURNS, BODY) => #reserveName(PARAM) ~> #checkNamesFunc(PARAMS, RETURNS, BODY) ... </k>
-    rule <k> #checkNamesFunc(PARAM : _, PARAMS:TypedIdentifierList, RETURNS, BODY) => #reserveName(PARAM) ~> #checkNamesFunc(PARAMS, RETURNS, BODY) ... </k>
-    rule <k> #checkNamesFunc(.TypedIdentifierList, RETID, RETURNS:TypedIdentifierNeList, BODY) => #reserveName(RETID) ~> #checkNamesFunc(.TypedIdentifierList, RETURNS, BODY) ... </k>
-    rule <k> #checkNamesFunc(.TypedIdentifierList, RETID : _, RETURNS:TypedIdentifierNeList, BODY) => #reserveName(RETID) ~> #checkNamesFunc(.TypedIdentifierList, RETURNS, BODY) ... </k>
-    rule <k> #checkNamesFunc(.TypedIdentifierList, .TypedIdentifierNeList, BODY) => #checkNames(BODY) ... </k>
+    rule <k> #checkTop(B:Block) => #check(B) ... </k>
+    rule <k> #check({ }) => . ... </k>
+    rule <k> #check({ S }) => #pushBlockNames ~> #check(S) ~> #popBlockNames ... </k>
 
     rule <k> #pushBlockNames => . ... </k>
          <block-names> .List => ListItem(.Set) ... </block-names>
@@ -406,37 +370,87 @@ module YUL
             <all-names> ALLNAMES => ALLNAMES -Set BLOCKNAMES </all-names>
          </reserved-names>
 
+    rule <k> #check(REST:Statement S:Statement) => #check(REST) ~> #check(S) ... </k>
+
+    rule <k> #check(let ID, IDS:TypedIdentifierNeList) => #reserveName(ID) ~> #check(let IDS) ... </k>
+    rule <k> #check(let ID : _, IDS:TypedIdentifierNeList) => #reserveName(ID) ~> #check(let IDS) ... </k>
+    rule <k> #check(let ID, IDS:TypedIdentifierNeList := EXPR) => #reserveName(ID) ~> #check(let IDS) ~> #check(EXPR) ... </k>
+    rule <k> #check(let ID : _, IDS:TypedIdentifierNeList := EXPR) => #reserveName(ID) ~> #check(let IDS) ~> #check(EXPR) ... </k>
+    rule <k> #check(let .TypedIdentifierNeList) => . ... </k>
+
+    rule <k> #check(function ID ( PARAMS ) BODY) =>
+            #reserveName(ID)
+            ~> #pushBlockNames
+            ~> #checkNamesFunc(PARAMS, .TypedIdentifierNeList)
+            ~> #check(BODY)
+            ~> #popBlockNames
+            ~> #checkExitFn(LEAVE, BC) ...
+         </k>
+         <check-leave> LEAVE </check-leave>
+         <check-bc> BC => false </check-bc>
+
+    rule <k> #check(function ID ( PARAMS ) -> RETURNS BODY) =>
+            #reserveName(ID)
+            ~> #pushBlockNames
+            ~> #checkNamesFunc(PARAMS, RETURNS)
+            ~> #check(BODY)
+            ~> #popBlockNames
+            ~> #checkExitFn(LEAVE, BC) ...
+         </k>
+         <check-leave> LEAVE </check-leave>
+         <check-bc> BC => false </check-bc>
+
+    rule <k> #checkNamesFunc(PARAM, PARAMS:TypedIdentifierList, RETURNS) => #reserveName(PARAM) ~> #checkNamesFunc(PARAMS, RETURNS) ... </k>
+    rule <k> #checkNamesFunc(PARAM : _, PARAMS:TypedIdentifierList, RETURNS) => #reserveName(PARAM) ~> #checkNamesFunc(PARAMS, RETURNS) ... </k>
+    rule <k> #checkNamesFunc(.TypedIdentifierList, RETID, RETURNS:TypedIdentifierNeList) => #reserveName(RETID) ~> #checkNamesFunc(.TypedIdentifierList, RETURNS) ... </k>
+    rule <k> #checkNamesFunc(.TypedIdentifierList, RETID : _, RETURNS:TypedIdentifierNeList) => #reserveName(RETID) ~> #checkNamesFunc(.TypedIdentifierList, RETURNS) ... </k>
+    rule <k> #checkNamesFunc(.TypedIdentifierList, .TypedIdentifierNeList) => . ... </k>
+
+    rule <k> #checkExitFn(LEAVE, BC) => . ... </k>
+         <check-leave> _ => LEAVE </check-leave>
+         <check-bc> _ => BC </check-bc>
+
     rule <k> #reserveName(ID) => . ... </k>
          <reserved-names>
              <block-names> ListItem(BLOCKNAMES => BLOCKNAMES SetItem(ID)) ...  </block-names>
              <all-names> ALLNAMES => ALLNAMES SetItem(ID) </all-names>
          </reserved-names>
         requires notBool (ID in ALLNAMES)
-
-    syntax String ::= #IdToString(Identifier) [function, hook(STRING.token2string)]
-
     rule <k> #reserveName(ID) => #declarationError("Variable name " +String #IdToString(ID) +String " already taken in this scope.") ... </k>   [owise]
 
+    rule <k> #check(for { INIT } COND POST BODY) => #checkNoFns(INIT) ~> #check({ INIT for {} COND POST BODY }) ... </k>
+    rule <k> #check(for { } COND POST BODY) => #check(COND) ~> #checkBcAllowed ~> #check(BODY) ~> #checkBcDisallowed ~> #check(POST) ~> #checkBcRestore(BC) ... </k>
+         <check-bc> BC </check-bc>
 
-    rule <k> #checkStringsTop(B:Block) => #checkStrings(B) ... </k>
-    rule <k> #checkStrings({ }) => . ... </k>
-    rule <k> #checkStrings({ S }) => #checkStrings(S) ... </k>
-    rule <k> #checkStrings(REST:Statement S:Statement) => #checkStrings(REST) ~> #checkStrings(S) ... </k>
-    rule <k> #checkStrings(function _ ( _ ) BODY) => #checkStrings(BODY) ... </k>
-    rule <k> #checkStrings(function _ ( _ ) -> _ BODY) => #checkStrings(BODY) ... </k>
-    rule <k> #checkStrings(for INIT COND POST BODY) => #checkStrings(INIT) ~> #checkStrings(COND) ~> #checkStrings(POST) ~> #checkStrings(BODY) ... </k>
-    rule <k> #checkStrings(if COND BLOCK) => #checkStrings(COND) ~> #checkStrings(BLOCK) ... </k>
-    rule <k> #checkStrings(switch EXPR case CASEXPR BLOCK REST:Cases) => #checkStrings(CASEXPR) ~> #checkStrings(BLOCK) ~> #checkStrings(switch EXPR REST) ... </k>
-    rule <k> #checkStrings(switch EXPR case CASEXPR BLOCK REST:Cases DEFAULT:Default) => #checkStrings(CASEXPR) ~> #checkStrings(BLOCK) ~> #checkStrings(switch EXPR REST DEFAULT) ... </k>
-    rule <k> #checkStrings(switch EXPR .Cases) => #checkStrings(EXPR) ... </k>
-    rule <k> #checkStrings(switch EXPR .Cases default BLOCK) => #checkStrings(EXPR) ~> #checkStrings(BLOCK) ... </k>
-    rule <k> #checkStrings(switch EXPR default BLOCK) => #checkStrings(EXPR) ~> #checkStrings(BLOCK) ... </k>
-    rule <k> #checkStrings(let _, _:TypedIdentifierNeList := EXPR) => #checkStrings(EXPR) ... </k>
-    rule <k> #checkStrings(let _ : _, _:TypedIdentifierNeList := EXPR) => #checkStrings(EXPR) ... </k>
-    rule <k> #checkStrings(FUN:Identifier (ARG:Expression, ARGS:Expressions)) => #checkStrings(ARG) ~> #checkStrings(FUN (ARGS)) ... </k>
-    rule <k> #checkStrings(STR:StringLiteral) => #typeError("String literal too long") ... </k>
+    rule <k> #checkBcAllowed => . ... </k>
+         <check-bc> _ => true </check-bc>
+
+    rule <k> #checkBcDisallowed => . ... </k>
+         <check-bc> _ => false </check-bc>
+
+    rule <k> #checkBcRestore(BC) => . ... </k>
+         <check-bc> _ => BC </check-bc>
+
+    rule <k> #checkNoFns(_ _:FunctionDefinition) => #syntaxError("Functions cannot be defined inside a for-loop init block.") ... </k>
+    rule <k> #checkNoFns(_:FunctionDefinition) => #syntaxError("Functions cannot be defined inside a for-loop init block.") ...  </k>
+    rule <k> #checkNoFns(REST _:Statement) => #checkNoFns(REST) ... </k>    [priority(51)]
+    rule <k> #checkNoFns(_:Statement) => . ... </k>                         [priority(52)]
+
+    rule <k> #check(if COND BLOCK) => #check(COND) ~> #check(BLOCK) ... </k>
+    rule <k> #check(switch EXPR case CEXPR BLOCK REST:Cases) => #check(CEXPR) ~> #check(BLOCK) ~> #check(switch EXPR REST) ... </k>
+    rule <k> #check(switch EXPR case CEXPR BLOCK REST:Cases DEFAULT:Default) => #check(EXPR) ~> #check(CEXPR) ~> #check(BLOCK) ~> #check(switch EXPR REST DEFAULT) ... </k>
+    rule <k> #check(switch EXPR .Cases) => #check(EXPR) ... </k>
+    rule <k> #check(switch EXPR .Cases default BLOCK) => #check(EXPR) ~> #check(BLOCK) ... </k>
+    rule <k> #check(break) => #syntaxError("break is only allowed in a for loop's body.") ... </k>
+         <check-bc> false </check-bc>
+    rule <k> #check(continue) => #syntaxError("continue is only allowed in a for loop's body.") ... </k>
+         <check-bc> false </check-bc>
+    rule <k> #check(leave) => #syntaxError("leave is only allowed in a function's body.") ... </k>
+         <check-leave> false </check-leave>
+    rule <k> #check(FUN:Identifier (ARG:Expression, ARGS:Expressions)) => #check(ARG) ~> #check(FUN (ARGS)) ... </k>
+    rule <k> #check(STR:StringLiteral) => #typeError("String literal too long") ... </k>
         requires lengthBytes(String2Bytes({STR}:>String)) >Int 32
-    rule <k> #checkStrings(_) => . ... </k>  [owise]
+    rule <k> #check(_) => . ... </k>  [owise]
 
 
     rule <k> #start ~> { } => . </k>
