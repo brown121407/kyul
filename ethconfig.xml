@@ -1,24 +1,24 @@
 <ethereum>
     <evm>
         <call-state>
-            <id> 0 </id>
-            <caller> 0 </caller>
+            <id> #hexNumberStringToInt("0xDFE8Abf04515497Ff4ED2860F0D1372604fcbbb7") </id>
+            <caller> #hexNumberStringToInt("0xbe862ad9abfe6f22bcb087716c7d89a26051f74c") </caller>
             <call-data> b"\xF0\xF1\xF2\xF3\xF4\xF5\xF6\xF7\xF8\xF9\xFA\xFB\xFC\xFD\xFE\xFF\xE0\xE1\xE2\xE3\xE4\xE5\xE6\xE7\xE8\xE9\xEA\xEB\xEC\xED\xEE\xEF" </call-data>
             <call-value> 0 </call-value>
             <local-mem> .Bytes </local-mem>
             <memory-used> 0 </memory-used>
         </call-state>
 
-        <gas-price> 0 </gas-price>
-        <origin> 0 </origin>
+        <gas-price> 10 </gas-price>
+        <origin> #hexNumberStringToInt("0xbe862ad9abfe6f22bcb087716c7d89a26051f74c") </origin>
 
         <block>
-            <coinbase>   0 </coinbase>
-            <difficulty> 0 </difficulty>
-            <number>     0 </number>
-            <gas-limit>  0 </gas-limit>
-            <timestamp>  0 </timestamp>
-            <base-fee>   0 </base-fee>
+            <coinbase>   #hexNumberStringToInt("0x5B38Da6a701c568545dCfcB03FcB875f56beddC4") </coinbase>
+            <difficulty> 10995000000000000 </difficulty>
+            <number>     1636704767 </number>
+            <gas-limit>  30000000 </gas-limit>
+            <timestamp>  1683971255 </timestamp>
+            <base-fee>   10 </base-fee>
         </block>
     </evm>
 
@@ -28,8 +28,8 @@
         <active-accounts> .Set </active-accounts>
         <accounts>
             <account>
-                <account-id> 0    </account-id>
-                <balance>    0    </balance>
+                <account-id> #hexNumberStringToInt("0xDFE8Abf04515497Ff4ED2860F0D1372604fcbbb7") </account-id>
+                <balance>    53141791768290189543 </balance>
                 <storage>    .Map </storage>
                 <nonce>      0    </nonce>
             </account>
