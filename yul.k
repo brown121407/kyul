@@ -237,6 +237,7 @@ module YUL-UTILS
                         | #checkNames(Statement)
                         | #checkNamesFunc(TypedIdentifierList, TypedIdentifierNeList, Block)
                         | "#popBlockNames"
+                        | "#pushBlockNames"
                         | #reserveName(Identifier)
     syntax CheckStrings ::= #checkStringsTop(Pgm)
                           | #checkStrings(Statement)
@@ -372,18 +373,15 @@ module YUL
     rule <k> #checkNamesTop(B:Block) => #checkNames(B) ... </k>
 
     rule <k> #checkNames({ }) => . ... </k>
-    rule <k> #checkNames({ S }) => #checkNames(S) ~> #popBlockNames ... </k>
-         <block-names> .List => ListItem(.Set) ... </block-names>
+    rule <k> #checkNames({ S }) => #pushBlockNames ~> #checkNames(S) ~> #popBlockNames ... </k>
     rule <k> #checkNames(REST:Statement S:Statement) => #checkNames(REST) ~> #checkNames(S) ... </k>
     rule <k> #checkNames(let ID, IDS:TypedIdentifierNeList) => #reserveName(ID) ~> #checkNames(let IDS) ... </k>
     rule <k> #checkNames(let ID : _, IDS:TypedIdentifierNeList) => #reserveName(ID) ~> #checkNames(let IDS) ... </k>
     rule <k> #checkNames(let ID, IDS:TypedIdentifierNeList := _) => #reserveName(ID) ~> #checkNames(let IDS) ... </k>
     rule <k> #checkNames(let ID : _, IDS:TypedIdentifierNeList := _) => #reserveName(ID) ~> #checkNames(let IDS) ... </k>
     rule <k> #checkNames(let .TypedIdentifierNeList) => . ... </k>
-    rule <k> #checkNames(function ID ( PARAMS ) BODY) => #reserveName(ID) ~> #checkNamesFunc(PARAMS, .TypedIdentifierNeList, BODY) ~> #popBlockNames ... </k>
-         <block-names> .List => ListItem(.Set) ... </block-names>
-    rule <k> #checkNames(function ID ( PARAMS ) -> RETURNS BODY) => #reserveName(ID) ~> #checkNamesFunc(PARAMS, RETURNS, BODY) ~> #popBlockNames ... </k>
-         <block-names> .List => ListItem(.Set) ... </block-names>
+    rule <k> #checkNames(function ID ( PARAMS ) BODY) => #reserveName(ID) ~> #pushBlockNames ~> #checkNamesFunc(PARAMS, .TypedIdentifierNeList, BODY) ~> #popBlockNames ... </k>
+    rule <k> #checkNames(function ID ( PARAMS ) -> RETURNS BODY) => #reserveName(ID) ~> #pushBlockNames ~> #checkNamesFunc(PARAMS, RETURNS, BODY) ~> #popBlockNames ... </k>
     rule <k> #checkNames(for INIT _ POST BODY) => #checkNames(INIT) ~> #checkNames(POST) ~> #checkNames(BODY) ... </k>
     rule <k> #checkNames(if _ BLOCK) => #checkNames(BLOCK) ... </k>
     rule <k> #checkNames(switch EXPR case _ BLOCK REST:Cases) => #checkNames(BLOCK) ~> #checkNames(switch EXPR REST) ... </k>
@@ -399,6 +397,9 @@ module YUL
     rule <k> #checkNamesFunc(.TypedIdentifierList, RETID : _, RETURNS:TypedIdentifierNeList, BODY) => #reserveName(RETID) ~> #checkNamesFunc(.TypedIdentifierList, RETURNS, BODY) ... </k>
     rule <k> #checkNamesFunc(.TypedIdentifierList, .TypedIdentifierNeList, BODY) => #checkNames(BODY) ... </k>
 
+    rule <k> #pushBlockNames => . ... </k>
+         <block-names> .List => ListItem(.Set) ... </block-names>
+
     rule <k> #popBlockNames => . ... </k>
          <reserved-names>
             <block-names> ListItem(BLOCKNAMES) => .List ... </block-names>
@@ -412,7 +413,9 @@ module YUL
          </reserved-names>
         requires notBool (ID in ALLNAMES)
 
-    rule <k> #reserveName(ID) => #declarationError("Variable name " +String #unparseKORE(ID) +String " already taken in this scope.") ... </k>   [owise]
+    syntax String ::= #IdToString(Identifier) [function, hook(STRING.token2string)]
+
+    rule <k> #reserveName(ID) => #declarationError("Variable name " +String #IdToString(ID) +String " already taken in this scope.") ... </k>   [owise]
 
 
     rule <k> #checkStringsTop(B:Block) => #checkStrings(B) ... </k>
