@@ -193,7 +193,6 @@ module YUL-UTILS
                      | Multi
     syntax KItem ::= #envRestore(Map, Map)
                 | "#start"
-                | #realStuff(RealStuff)
 
     syntax Multi ::= #multi(Expressions)
 
@@ -203,7 +202,7 @@ module YUL-UTILS
 
     syntax FunctionUtil ::= "#funcEnd"
                           | #functionCall(Identifier)
-                          | #evalArg(RealStuff)                [strict]
+                          | #evalArg(MaybeMulti)                [strict]
                           | #hoist(FunctionDefinition)
                           | #toReturn(TypedIdentifierNeList)
                           | #evalReturn(Expression)            [strict]
@@ -218,13 +217,13 @@ module YUL-UTILS
                    | #declarationError(String)
                    | #typeError(String)
 
-    syntax RealStuff ::= Expression
-                       | Multi
+    syntax MaybeMulti ::= Expression
+                        | Multi
 
     syntax RealVariableDeclaration ::= "#let" TypedIdentifierNeList
-                                     | "#let" TypedIdentifierNeList ":=" "#realStuff" "(" RealStuff ")"             [strict(2)]
+                                     | "#let" TypedIdentifierNeList ":=" MaybeMulti             [strict(2)]
 
-    syntax RealAssignment ::= "#assign" IdentifierNeList ":=" "#realStuff" "(" RealStuff ")"                      [strict(2)]
+    syntax RealAssignment ::= "#assign" IdentifierNeList ":=" MaybeMulti                      [strict(2)]
 
     syntax RealFor ::= #for(Expression, Block, Block)
 
@@ -523,9 +522,9 @@ module YUL
 
 
     rule <k> let IDS => #let IDS ... </k>                           [structural]
-    rule <k> let IDS := E => #let IDS := #realStuff(E) ... </k>     [structural]
+    rule <k> let IDS := E => #let IDS := E ... </k>     [structural]
 
-    rule <k> IDS := E => #assign IDS := #realStuff(E) ... </k>      [structural]
+    rule <k> IDS := E => #assign IDS := E ... </k>      [structural]
 
 
     rule <k> #let ID:Identifier : _:TypeName, IDS:TypedIdentifierNeList => #let ID, IDS ... </k>    [structural]
@@ -533,15 +532,15 @@ module YUL
     rule <k> #let .TypedIdentifierNeList => . ... </k>                                              [structural]
 
 
-    rule <k> #let ID:Identifier : _:TypeName, IDS:TypedIdentifierNeList := #realStuff(RS) => #let ID, IDS := #realStuff(RS) ... </k>                            [structural]
-    rule <k> #let ID , IDS:TypedIdentifierNeList := #realStuff(#multi(E:Expression, REST)) => #letBind(ID, E) ~> #let IDS := #realStuff(#multi(REST)) ... </k>  [structural]
-    rule <k> #let .TypedIdentifierNeList := #realStuff(#multi(.Expressions)) => . ... </k>                                                                      [structural]
-    rule <k> #let ID , .TypedIdentifierNeList := #realStuff(E:Expression) => #letBind(ID, E) ... </k>                                                           [structural]
+    rule <k> #let ID:Identifier : _:TypeName, IDS:TypedIdentifierNeList := RS => #let ID, IDS := RS ... </k>                            [structural]
+    rule <k> #let ID , IDS:TypedIdentifierNeList := #multi(E:Expression, REST) => #letBind(ID, E) ~> #let IDS := #multi(REST) ... </k>  [structural]
+    rule <k> #let .TypedIdentifierNeList := #multi(.Expressions) => . ... </k>                                                                      [structural]
+    rule <k> #let ID , .TypedIdentifierNeList := E:Expression => #letBind(ID, E) ... </k>                                                           [structural]
 
 
-    rule <k> #assign ID, IDS:IdentifierNeList := #realStuff(#multi(E:Expression, REST)) => #bind(ID, E) ~> #assign IDS := #realStuff(#multi(REST)) ... </k> [structural]
-    rule <k> #assign .IdentifierNeList := #realStuff(#multi(.Expressions)) => . ... </k>                                                                    [structural]
-    rule <k> #assign ID, .IdentifierNeList := #realStuff(E:Expression) => #bind(ID, E) ... </k>                                                             [structural]
+    rule <k> #assign ID, IDS:IdentifierNeList := #multi(E:Expression, REST) => #bind(ID, E) ~> #assign IDS := #multi(REST) ... </k> [structural]
+    rule <k> #assign .IdentifierNeList := #multi(.Expressions) => . ... </k>                                                                    [structural]
+    rule <k> #assign ID, .IdentifierNeList := E:Expression => #bind(ID, E) ... </k>                                                             [structural]
 
 
     rule <k> #letBind(ID, VAL:Int) => . ... </k>
@@ -932,8 +931,8 @@ module YUL
          <vars> VARS => .Map </vars>
 
 
-    rule <k> #argBind(ID:Identifier, PARAMS:TypedIdentifierList, VAL:Expression, ARGS:Expressions) => #let ID := #realStuff(VAL) ~> #argBind(PARAMS, ARGS) ... </k>
-    rule <k> #argBind(ID:Identifier : _:TypeName, PARAMS:TypedIdentifierList, VAL:Expression, ARGS:Expressions) => #let ID := #realStuff(VAL) ~> #argBind(PARAMS, ARGS) ... </k>
+    rule <k> #argBind(ID:Identifier, PARAMS:TypedIdentifierList, VAL:Expression, ARGS:Expressions) => #let ID := VAL ~> #argBind(PARAMS, ARGS) ... </k>
+    rule <k> #argBind(ID:Identifier : _:TypeName, PARAMS:TypedIdentifierList, VAL:Expression, ARGS:Expressions) => #let ID := VAL ~> #argBind(PARAMS, ARGS) ... </k>
     rule <k> #argBind(.TypedIdentifierList, .Expressions) => . ... </k>
 
 
