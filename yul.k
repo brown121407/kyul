@@ -448,8 +448,13 @@ module YUL
     rule <k> #check(leave) => #syntaxError("leave is only allowed in a function's body.") ... </k>
          <check-leave> false </check-leave>
     rule <k> #check(FUN:Identifier (ARG:Expression, ARGS:Expressions)) => #check(ARG) ~> #check(FUN (ARGS)) ... </k>
+    rule <k> #check(LIT:LiteralUntyped : _) => #check(LIT) ... </k>
     rule <k> #check(STR:StringLiteral) => #typeError("String literal too long") ... </k>
         requires lengthBytes(String2Bytes({STR}:>String)) >Int 32
+    rule <k> #check(INT:DecimalNumber) => #typeError("TypeError: Number literal too large (> 256 bits)") ... </k>
+        requires {INT}:>Int >=Int #pow256
+    rule <k> #check(HEX:HexNumber) => #typeError("TypeError: Number literal too large (> 256 bits)") ... </k>
+        requires #hexNumberStringToInt(#hexNumberToString(HEX)) >=Int #pow256
     rule <k> #check(_) => . ... </k>  [owise]
 
 
