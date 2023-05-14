@@ -386,7 +386,7 @@ module YUL
             ~> #popBlockNames
             ~> #checkExitFn(LEAVE, BC) ...
          </k>
-         <check-leave> LEAVE </check-leave>
+         <check-leave> LEAVE => true </check-leave>
          <check-bc> BC => false </check-bc>
 
     rule <k> #check(function ID ( PARAMS ) -> RETURNS BODY) =>
@@ -397,7 +397,7 @@ module YUL
             ~> #popBlockNames
             ~> #checkExitFn(LEAVE, BC) ...
          </k>
-         <check-leave> LEAVE </check-leave>
+         <check-leave> LEAVE => true </check-leave>
          <check-bc> BC => false </check-bc>
 
     rule <k> #checkNamesFunc(PARAM, PARAMS:TypedIdentifierList, RETURNS) => #reserveName(PARAM) ~> #checkNamesFunc(PARAMS, RETURNS) ... </k>
