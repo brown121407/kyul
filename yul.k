@@ -194,11 +194,12 @@ module YUL-UTILS
     syntax KItem ::= #envRestore(Map, Map)
                 | "#start"
 
-    syntax Multi ::= #multi(Expressions)
+    syntax Ints ::= List{Int, ";"}
+    syntax Multi ::= #multi(Ints)
 
     syntax Bind ::= #letBind(Identifier, Expression)   [strict(2)]
                   | #bind(Identifier, Expression)      [strict(2)]
-                  | #argBind(TypedIdentifierList, Expressions)
+                  | #argBind(TypedIdentifierList, Ints)
 
     syntax FunctionUtil ::= "#funcEnd"
                           | #functionCall(Identifier)
@@ -207,7 +208,7 @@ module YUL-UTILS
                           | #toReturn(TypedIdentifierNeList)
                           | #evalReturn(Expression)            [strict]
                           | "#fetchReturns"
-                          | #prepareUserFunc(TypedIdentifierList, Expressions, Block, TypedIdentifierNeList)
+                          | #prepareUserFunc(TypedIdentifierList, Ints, Block, TypedIdentifierNeList)
 
     syntax ForUtil ::= #endFor(ForLoop)
                      | #evalForCond(Expression)           [strict]
@@ -533,13 +534,13 @@ module YUL
 
 
     rule <k> #let ID:Identifier : _:TypeName, IDS:TypedIdentifierNeList := RS => #let ID, IDS := RS ... </k>                            [structural]
-    rule <k> #let ID , IDS:TypedIdentifierNeList := #multi(E:Expression, REST) => #letBind(ID, E) ~> #let IDS := #multi(REST) ... </k>  [structural]
-    rule <k> #let .TypedIdentifierNeList := #multi(.Expressions) => . ... </k>                                                                      [structural]
+    rule <k> #let ID , IDS:TypedIdentifierNeList := #multi(E; REST) => #letBind(ID, E) ~> #let IDS := #multi(REST) ... </k>  [structural]
+    rule <k> #let .TypedIdentifierNeList := #multi(.Ints) => . ... </k>                                                                      [structural]
     rule <k> #let ID , .TypedIdentifierNeList := E:Expression => #letBind(ID, E) ... </k>                                                           [structural]
 
 
-    rule <k> #assign ID, IDS:IdentifierNeList := #multi(E:Expression, REST) => #bind(ID, E) ~> #assign IDS := #multi(REST) ... </k> [structural]
-    rule <k> #assign .IdentifierNeList := #multi(.Expressions) => . ... </k>                                                                    [structural]
+    rule <k> #assign ID, IDS:IdentifierNeList := #multi(E; REST) => #bind(ID, E) ~> #assign IDS := #multi(REST) ... </k> [structural]
+    rule <k> #assign .IdentifierNeList := #multi(.Ints) => . ... </k>                                                                    [structural]
     rule <k> #assign ID, .IdentifierNeList := E:Expression => #bind(ID, E) ... </k>                                                             [structural]
 
 
@@ -560,135 +561,135 @@ module YUL
 
     // Function execution
     rule <k> FUN:Identifier ( ARGS:Expressions ) => ARGS ~> #functionCall(FUN) ... </k>
-         <fn-args> K => .Expressions ~> K </fn-args>
+         <fn-args> K => .Ints ~> K </fn-args>
 
     // Arguments are evaluated from right to left.
     rule <k> ARG:Expression , ARGS:Expressions => ARGS ~> #evalArg(ARG) ... </k>    [structural]
 
     rule <k> .Expressions => . ... </k>
 
-    rule <k> #evalArg(#multi(ARG:Expression, .Expressions)) => . ... </k>
-         <fn-args> ARGS:Expressions => ARG, ARGS ... </fn-args>
+    rule <k> #evalArg(#multi(ARG; .Ints)) => . ... </k>
+         <fn-args> ARGS:Ints => ARG; ARGS ... </fn-args>
 
-    rule <k> #evalArg(ARG:Expression) => . ... </k>
-         <fn-args> ARGS:Expressions => ARG, ARGS ... </fn-args>
+    rule <k> #evalArg(ARG) => . ... </k>
+         <fn-args> ARGS:Ints => ARG; ARGS ... </fn-args>
 
     // stop()
     rule <k> #functionCall(stop) ~> _ => . </k>
-         <fn-args> .Expressions => . ... </fn-args>
+         <fn-args> .Ints => . ... </fn-args>
 
     // add(x, y)
     rule <k> #functionCall(add) => W0 +Word W1 ... </k>
-         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <fn-args> W0; W1 => . ... </fn-args>
 
     // sub(x, y)
     rule <k> #functionCall(sub) => W0 -Word W1 ... </k>
-         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <fn-args> W0; W1 => . ... </fn-args>
 
     // mul(x, y)
     rule <k> #functionCall(mul) => W0 *Word W1 ... </k>
-         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <fn-args> W0; W1 => . ... </fn-args>
 
     // div(x, y)
     rule <k> #functionCall(div) => W0 /Word W1 ... </k>
-         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <fn-args> W0; W1 => . ... </fn-args>
 
     // sdiv(x, y)
     rule <k> #functionCall(sdiv) => W0 /sWord W1 ... </k>
-         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <fn-args> W0; W1 => . ... </fn-args>
 
     // mod(x, y)
     rule <k> #functionCall(mod) => W0 %Word W1 ... </k>
-         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <fn-args> W0; W1 => . ... </fn-args>
 
     // smod(x, y)
     rule <k> #functionCall(smod) => W0 %sWord W1 ... </k>
-         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <fn-args> W0; W1 => . ... </fn-args>
 
     // exp(x, y)
     rule <k> #functionCall(exp) => W0 ^Word W1 ... </k>
-         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <fn-args> W0; W1 => . ... </fn-args>
 
     // not(x)
     rule <k> #functionCall(not) => ~Word W ... </k>
-         <fn-args> W:Int => . ... </fn-args>
+         <fn-args> W; .Ints => . ... </fn-args>
 
     // lt(x, y)
     rule <k> #functionCall(lt) => W0 <Word W1 ... </k>
-         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <fn-args> W0; W1 => . ... </fn-args>
 
     // gt(x, y)
     rule <k> #functionCall(gt) => W0 >Word W1 ... </k>
-         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <fn-args> W0; W1 => . ... </fn-args>
 
     // slt(x, y)
     rule <k> #functionCall(slt) => W0 s<Word W1 ... </k>
-         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <fn-args> W0; W1 => . ... </fn-args>
 
     // sgt(x, y)
     rule <k> #functionCall(sgt) => W1 s<Word W0 ... </k>
-         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <fn-args> W0; W1 => . ... </fn-args>
 
     // eq(x, y)
     rule <k> #functionCall(eq) => W0 ==Word W1 ... </k>
-         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <fn-args> W0; W1 => . ... </fn-args>
 
     // iszero(x)
     rule <k> #functionCall(iszero) => W ==Word 0 ... </k>
-         <fn-args> W:Int, .Expressions => . ... </fn-args>
+         <fn-args> W; .Ints => . ... </fn-args>
 
     // and(x, y)
     rule <k> #functionCall(and) => W0 &Word W1 ... </k>
-         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <fn-args> W0; W1 => . ... </fn-args>
 
     // or(x, y)
     rule <k> #functionCall(or) => W0 |Word W1 ... </k>
-         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <fn-args> W0; W1 => . ... </fn-args>
 
     // xor(x, y)
     rule <k> #functionCall(xor) => W0 xorWord W1 ... </k>
-         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <fn-args> W0; W1 => . ... </fn-args>
 
     // byte(n, x)
     rule <k> #functionCall(byte) => #byte(N, X) ... </k>
-         <fn-args> N:Int, X:Int => . ... </fn-args>
+         <fn-args> N; X => . ... </fn-args>
 
     // shl(x, y)
     rule <k> #functionCall(shl) => W0 <<Word W1 ... </k>
-         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <fn-args> W0; W1 => . ... </fn-args>
 
     // shr(x, y)
     rule <k> #functionCall(shr) => W0 >>Word W1 ... </k>
-         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <fn-args> W0; W1 => . ... </fn-args>
 
     // sar(x, y)
     rule <k> #functionCall(sar) => W0 >>sWord W1 ... </k>
-         <fn-args> W0:Int, W1:Int => . ... </fn-args>
+         <fn-args> W0; W1 => . ... </fn-args>
 
     // addmod(x, y, m)
     rule <k> #functionCall(addmod) => (W0 +Int W1) %Word W2 ... </k>
-         <fn-args> W0:Int, W1:Int, W2:Int => . ... </fn-args>
+         <fn-args> W0; W1; W2 => . ... </fn-args>
 
     // mulmod(x, y, m)
     rule <k> #functionCall(mulmod) => (W0 *Int W1) %Word W2 ... </k>
-         <fn-args> W0:Int, W1:Int, W2:Int => . ... </fn-args>
+         <fn-args> W0; W1; W2 => . ... </fn-args>
 
     // signextend(i, x)
     rule <k> #functionCall(signextend) => #signextend(W0, W1) ... </k>
-         <fn-args> W0:Int, W1:Int => . </fn-args>
+         <fn-args> W0; W1 => . </fn-args>
 
 
     // keccak256(p, n)
     syntax Int ::= #keccak256(String) [function, hook(YUL.keccak256)]
 
     rule <k> #functionCall(keccak256) => #keccak256(Bytes2String(substrBytes(MEM, ADDR, ADDR +Int NBYTES))) ... </k>
-         <fn-args> ADDR:Int, NBYTES:Int => . ... </fn-args>
+         <fn-args> ADDR; NBYTES => . ... </fn-args>
          <local-mem> MEM </local-mem>
          <memory-used> MU </memory-used>
         requires ADDR +Int NBYTES <=Int MU *Int 32
 
     rule <k> #functionCall(keccak256) => #expandMem((ADDR +Int NBYTES) /Int 32 +Int (#if ((ADDR +Int NBYTES) %Int 32) ==Int 0 #then 0 #else 1 #fi)) ~> #functionCall(keccak256) ... </k>
-         <fn-args> ADDR:Int, NBYTES:Int ... </fn-args>
+         <fn-args> ADDR; NBYTES ... </fn-args>
          <memory-used> MU </memory-used>
         requires ADDR +Int NBYTES >Int MU *Int 32
 
@@ -696,7 +697,7 @@ module YUL
 
     // pop(x)
     rule <k> #functionCall(pop) => . ... </k>
-         <fn-args> _:Int, .Expressions => . ... </fn-args>
+         <fn-args> _; .Ints => . ... </fn-args>
 
     syntax ExpandMem ::= #expandMem(to: Int)
     rule <k> #expandMem(NEWMU) => . ... </k>
@@ -705,43 +706,43 @@ module YUL
 
     // mload(p)
     rule <k> #functionCall(mload) => Bytes2Int(substrBytes(MEM, ADDR, ADDR +Int 32), BE, Unsigned) ... </k>
-         <fn-args> ADDR:Int, .Expressions => . ... </fn-args>
+         <fn-args> ADDR; .Ints => . ... </fn-args>
          <local-mem> MEM </local-mem>
          <memory-used> MU </memory-used>
         requires (MU -Int 1) *Int 32 >=Int ADDR
 
     rule <k> #functionCall(mload) => #expandMem(ADDR /Int 32 +Int (#if ADDR %Int 32 ==Int 0 #then 1 #else 2 #fi)) ~> #functionCall(mload) ... </k>
-         <fn-args> ADDR:Int, .Expressions ... </fn-args>
+         <fn-args> ADDR; .Ints ... </fn-args>
          <memory-used> MU </memory-used>
         requires (MU -Int 1) *Int 32 <Int ADDR
 
     // mstore(p, v)
     rule <k> #functionCall(mstore) => . ... </k>
-         <fn-args> ADDR:Int, VAL:Int => . ... </fn-args>
+         <fn-args> ADDR; VAL => . ... </fn-args>
          <local-mem> MEM => replaceAtBytes(MEM, ADDR, Int2Bytes(32, VAL, BE)) </local-mem>
          <memory-used> MU </memory-used>
         requires (MU -Int 1) *Int 32 >=Int ADDR
 
     rule <k> #functionCall(mstore) => #expandMem(ADDR /Int 32 +Int (#if ADDR %Int 32 ==Int 0 #then 1 #else 2 #fi)) ~> #functionCall(mstore) ... </k>
-         <fn-args> ADDR:Int, _:Int ... </fn-args>
+         <fn-args> ADDR; _ ... </fn-args>
          <memory-used> MU </memory-used>
         requires (MU -Int 1) *Int 32 <Int ADDR
 
     // mstore8(p, v)
     rule <k> #functionCall(mstore8) => . ... </k>
-         <fn-args> ADDR:Int, VAL:Int => . ... </fn-args>
+         <fn-args> ADDR; VAL => . ... </fn-args>
          <local-mem> MEM => MEM[ADDR <- VAL] </local-mem>
          <memory-used> MU </memory-used>
         requires MU *Int 32 >Int ADDR
 
     rule <k> #functionCall(mstore8) => #expandMem(ADDR /Int 32 +Int 1) ~> #functionCall(mstore8) ... </k>
-         <fn-args> ADDR:Int, _:Int ... </fn-args>
+         <fn-args> ADDR; _ ... </fn-args>
          <memory-used> MU </memory-used>
         requires MU *Int 32 <=Int ADDR
 
     // sload(p)
     rule <k> #functionCall(sload) => VAL ... </k>
-         <fn-args> SLOT:Int, .Expressions => . ... </fn-args>
+         <fn-args> SLOT; .Ints => . ... </fn-args>
          <id> CONTRACT </id>
          <account>
             <account-id> CONTRACT </account-id>
@@ -750,11 +751,11 @@ module YUL
          </account>
 
     rule <k> #functionCall(sload) => 0 ... </k>
-         <fn-args> _:Int, .Expressions => . ... </fn-args>       [owise]
+         <fn-args> _; .Ints => . ... </fn-args>       [owise]
 
     // sstore(p, v)
     rule <k> #functionCall(sstore) => . ... </k>
-         <fn-args> SLOT:Int, 0 => . ... </fn-args>
+         <fn-args> SLOT; 0 => . ... </fn-args>
          <id> CONTRACT </id>
          <account>
             <account-id> CONTRACT </account-id>
@@ -763,7 +764,7 @@ module YUL
          </account>
 
     rule <k> #functionCall(sstore) => . ... </k>
-         <fn-args> SLOT:Int, VAL:Int => . ... </fn-args>
+         <fn-args> SLOT; VAL => . ... </fn-args>
          <id> CONTRACT </id>
          <account>
             <account-id> CONTRACT </account-id>
@@ -773,17 +774,17 @@ module YUL
 
     // msize()
     rule <k> #functionCall(msize) => 32 *Int MU ... </k>
-         <fn-args> .Expressions => . ... </fn-args>
+         <fn-args> .Ints => . ... </fn-args>
          <memory-used> MU </memory-used>
 
     // address()
     rule <k> #functionCall(address) => ADDR ... </k>
-         <fn-args> .Expressions => . ... </fn-args>
+         <fn-args> .Ints => . ... </fn-args>
          <id> ADDR </id>
 
     // balance(a)
     rule <k> #functionCall(balance) => BALANCE ... </k>
-         <fn-args> ADDR:Int, .Expressions => . ... </fn-args>
+         <fn-args> ADDR; .Ints => . ... </fn-args>
          <account>
             <account-id> ADDR </account-id>
             <balance> BALANCE </balance>
@@ -792,7 +793,7 @@ module YUL
 
     // selfbalance()
     rule <k> #functionCall(selfbalance) => BALANCE ... </k>
-         <fn-args> .Expressions => . ... </fn-args>
+         <fn-args> .Ints => . ... </fn-args>
          <id> ADDR </id>
          <account>
             <account-id> ADDR </account-id>
@@ -802,61 +803,61 @@ module YUL
 
     // caller()
     rule <k> #functionCall(caller) => ADDR ... </k>
-         <fn-args> .Expressions => . ... </fn-args>
+         <fn-args> .Ints => . ... </fn-args>
          <caller> ADDR </caller>
 
     // TODO: gas
 
     // callvalue()
     rule <k> #functionCall(callvalue) => CALLVALUE ... </k>
-         <fn-args> .Expressions => . ... </fn-args>
+         <fn-args> .Ints => . ... </fn-args>
          <call-value> CALLVALUE </call-value>
 
     // calldataload(p)
     rule <k> #functionCall(calldataload) => Bytes2Int(substrBytes(CALLDATA, OFFSET, OFFSET +Int 32), BE, Unsigned) ... </k>
-         <fn-args> OFFSET:Int, .Expressions => . ... </fn-args>
+         <fn-args> OFFSET; .Ints => . ... </fn-args>
          <call-data> CALLDATA </call-data>
         requires OFFSET +Int 32 <=Int lengthBytes(CALLDATA)
 
     rule <k> #functionCall(calldataload) => Bytes2Int(padRightBytes(substrBytes(CALLDATA, OFFSET, lengthBytes(CALLDATA)), 32, 0), BE, Unsigned) ... </k>
-         <fn-args> OFFSET:Int, .Expressions => . ... </fn-args>
+         <fn-args> OFFSET; .Ints => . ... </fn-args>
          <call-data> CALLDATA </call-data>
         requires OFFSET <Int lengthBytes(CALLDATA) andBool OFFSET +Int 32 >Int lengthBytes(CALLDATA)
 
     rule <k> #functionCall(calldataload) => 0 ... </k>
-         <fn-args> OFFSET:Int, .Expressions => . ... </fn-args>
+         <fn-args> OFFSET; .Ints => . ... </fn-args>
          <call-data> CALLDATA </call-data>
         requires OFFSET >=Int lengthBytes(CALLDATA)
 
     // calldatasize()
     rule <k> #functionCall(calldatasize) => lengthBytes(CALLDATA) ... </k>
-         <fn-args> .Expressions => . ... </fn-args>
+         <fn-args> .Ints => . ... </fn-args>
          <call-data> CALLDATA </call-data>
 
     // calldatacopy(t, f, s)
     rule <k> #functionCall(calldatacopy) => . ... </k>
-         <fn-args> MEMADDR:Int, CDADDR:Int, NBYTES:Int => . ... </fn-args>
+         <fn-args> MEMADDR; CDADDR; NBYTES => . ... </fn-args>
          <call-data> CALLDATA </call-data>
          <local-mem> MEM => replaceAtBytes(MEM, MEMADDR, substrBytes(CALLDATA, CDADDR, CDADDR +Int NBYTES)) </local-mem>
          <memory-used> MU </memory-used>
         requires (MEMADDR +Int NBYTES <=Int MU *Int 32) andBool (CDADDR +Int NBYTES <=Int lengthBytes(CALLDATA))
 
     rule <k> #functionCall(calldatacopy) => . ... </k>
-         <fn-args> MEMADDR:Int, CDADDR:Int, NBYTES:Int => . ... </fn-args>
+         <fn-args> MEMADDR; CDADDR; NBYTES => . ... </fn-args>
          <call-data> CALLDATA </call-data>
          <local-mem> MEM => replaceAtBytes(MEM, MEMADDR, padRightBytes(substrBytes(CALLDATA, CDADDR, lengthBytes(CALLDATA)), NBYTES, 0)) </local-mem>
          <memory-used> MU </memory-used>
         requires (MEMADDR +Int NBYTES <=Int MU *Int 32) andBool ((CDADDR <Int lengthBytes(CALLDATA)) andBool (CDADDR +Int NBYTES >Int lengthBytes(CALLDATA)))
 
     rule <k> #functionCall(calldatacopy) => . ... </k>
-         <fn-args> MEMADDR:Int, CDADDR:Int, NBYTES:Int => . ... </fn-args>
+         <fn-args> MEMADDR; CDADDR; NBYTES => . ... </fn-args>
          <call-data> CALLDATA </call-data>
          <local-mem> MEM => replaceAtBytes(MEM, MEMADDR, padRightBytes(.Bytes, NBYTES, 0)) </local-mem>
          <memory-used> MU </memory-used>
         requires (MEMADDR +Int NBYTES <=Int MU *Int 32) andBool (CDADDR >Int lengthBytes(CALLDATA))
 
     rule <k> #functionCall(calldatacopy) => #expandMem((MEMADDR +Int NBYTES) /Int 32 +Int (#if ((MEMADDR +Int NBYTES) %Int 32) ==Int 0 #then 0 #else 1 #fi)) ~> #functionCall(calldatacopy) ... </k>
-         <fn-args> MEMADDR:Int, _:Int, NBYTES:Int ... </fn-args>
+         <fn-args> MEMADDR; _; NBYTES ... </fn-args>
          <memory-used> MU </memory-used>
         requires MEMADDR +Int NBYTES >Int MU *Int 32
 
@@ -867,61 +868,61 @@ module YUL
 
     // chainid()
     rule <k> #functionCall(chainid) => CHAINID ... </k>
-         <fn-args> .Expressions => . ... </fn-args>
+         <fn-args> .Ints => . ... </fn-args>
          <chain-id> CHAINID </chain-id>
 
     // basefee()
     rule <k> #functionCall(basefee) => BASEFEE ... </k>
-         <fn-args> .Expressions => . ... </fn-args>
+         <fn-args> .Ints => . ... </fn-args>
          <base-fee> BASEFEE </base-fee>
 
     // origin()
     rule <k> #functionCall(origin) => ORIGIN ... </k>
-         <fn-args> .Expressions => . ... </fn-args>
+         <fn-args> .Ints => . ... </fn-args>
          <origin> ORIGIN </origin>
 
     // gasprice()
     rule <k> #functionCall(gasprice) => GASPRICE ... </k>
-         <fn-args> .Expressions => . ... </fn-args>
+         <fn-args> .Ints => . ... </fn-args>
          <gas-price> GASPRICE </gas-price>
 
     // TODO: blockhash
 
     // coinbase()
     rule <k> #functionCall(coinbase) => COINBASE ... </k>
-         <fn-args> .Expressions => . ... </fn-args>
+         <fn-args> .Ints => . ... </fn-args>
          <coinbase> COINBASE </coinbase>
 
     // timestamp()
     rule <k> #functionCall(timestamp) => TIMESTAMP ... </k>
-         <fn-args> .Expressions => . ... </fn-args>
+         <fn-args> .Ints => . ... </fn-args>
          <timestamp> TIMESTAMP </timestamp>
 
     // number()
     rule <k> #functionCall(number) => NUMBER ... </k>
-         <fn-args> .Expressions => . ... </fn-args>
+         <fn-args> .Ints => . ... </fn-args>
          <number> NUMBER </number>
 
     // difficulty()
     rule <k> #functionCall(difficulty) => DIFFICULTY ... </k>
-         <fn-args> .Expressions => . ... </fn-args>
+         <fn-args> .Ints => . ... </fn-args>
          <difficulty> DIFFICULTY </difficulty>
 
     // TODO: prevrandao
 
     // gaslimit()
     rule <k> #functionCall(gaslimit) => GASLIMIT ... </k>
-         <fn-args> .Expressions => . ... </fn-args>
+         <fn-args> .Ints => . ... </fn-args>
          <gas-limit> GASLIMIT </gas-limit>
 
 
     rule <k> #functionCall(ID:Identifier) => #prepareUserFunc(PARAMS, ARGS, BODY, .TypedIdentifierNeList) ... </k>
-         <fn-args> ARGS:Expressions => . ... </fn-args>
+         <fn-args> ARGS:Ints => . ... </fn-args>
          <funcs> ... ID |-> L ... </funcs>
          <store> ... L |-> (function ID ( PARAMS ) BODY) ... </store>
 
     rule <k> #functionCall(ID:Identifier) => #prepareUserFunc(PARAMS, ARGS, BODY, RETURNS) ... </k>
-         <fn-args> ARGS:Expressions => . ... </fn-args>
+         <fn-args> ARGS:Ints => . ... </fn-args>
          <funcs> ... ID |-> L ... </funcs>
          <store> ... L |-> (function ID ( PARAMS ) -> RETURNS BODY) ... </store>
 
@@ -931,15 +932,15 @@ module YUL
          <vars> VARS => .Map </vars>
 
 
-    rule <k> #argBind(ID:Identifier, PARAMS:TypedIdentifierList, VAL:Expression, ARGS:Expressions) => #let ID := VAL ~> #argBind(PARAMS, ARGS) ... </k>
-    rule <k> #argBind(ID:Identifier : _:TypeName, PARAMS:TypedIdentifierList, VAL:Expression, ARGS:Expressions) => #let ID := VAL ~> #argBind(PARAMS, ARGS) ... </k>
-    rule <k> #argBind(.TypedIdentifierList, .Expressions) => . ... </k>
+    rule <k> #argBind(ID:Identifier, PARAMS:TypedIdentifierList, VAL:Int; ARGS:Ints) => #let ID := VAL ~> #argBind(PARAMS, ARGS) ... </k>
+    rule <k> #argBind(ID:Identifier : _:TypeName, PARAMS:TypedIdentifierList, VAL:Int; ARGS:Ints) => #let ID := VAL ~> #argBind(PARAMS, ARGS) ... </k>
+    rule <k> #argBind(.TypedIdentifierList, .Ints) => . ... </k>
 
 
     rule <k> #funcEnd => . ... </k>
 
 
-    rule <k> #toReturn(.TypedIdentifierNeList) => #fetchReturns ~> #multi(.Expressions) ... </k>
+    rule <k> #toReturn(.TypedIdentifierNeList) => #fetchReturns ~> #multi(.Ints) ... </k>
     rule <k> #toReturn(ID : _:TypeName, REST) => #evalReturn(ID) ~> #toReturn(REST) ... </k>
     rule <k> #toReturn(ID, REST) => #evalReturn(ID) ~> #toReturn(REST) ... </k>
 
@@ -948,15 +949,15 @@ module YUL
          <return> ... .List => ListItem(VAL) </return>
 
 
-    rule <k> #fetchReturns ~> #multi(RETURNED) => #fetchReturns ~> #multi(VAL, RETURNED) ... </k>
+    rule <k> #fetchReturns ~> #multi(RETURNED) => #fetchReturns ~> #multi(VAL; RETURNED) ... </k>
          <return> ... ListItem(VAL) => .List </return>
 
-    rule <k> #fetchReturns ~> #multi(EXPRS) ~> #envRestore(VARS, FUNCS) => #envRestore(VARS, FUNCS) ~> #multi(EXPRS) ... </k>
+    rule <k> #fetchReturns ~> #multi(INTS) ~> #envRestore(VARS, FUNCS) => #envRestore(VARS, FUNCS) ~> #multi(INTS) ... </k>
          <return> .List </return>
 
 
-    rule <k> #multi(.Expressions) => . ... </k>
-    rule <k> #multi(EXPR:Expression, .Expressions) => EXPR ... </k>
+    rule <k> #multi(.Ints) => . ... </k>
+    rule <k> #multi(INT; .Ints) => {INT}:>KResult ... </k>
 
 
     rule <k> leave ~> #funcEnd => #funcEnd ... </k>     [priority(51), structural]
