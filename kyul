@@ -7,4 +7,4 @@ fi
 
 ETHCONFIG=`cat "$1"`
 
-krun -cETHCONFIG="$ETHCONFIG" $2
+krun -cETHCONFIG="$ETHCONFIG" $2 | ./result-formatter.pl
