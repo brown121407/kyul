@@ -1,8 +1,5 @@
 #include "runtime/header.h"
 #include <cryptopp/keccak.h>
-#include <iostream>
-#include <iomanip>
-#include <sstream>
 
 extern "C" {
     const mpz_ptr hook_YUL_keccak256(string *input) {
