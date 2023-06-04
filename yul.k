@@ -217,6 +217,7 @@ module YUL-UTILS
                    | #syntaxError(String)
                    | #declarationError(String)
                    | #typeError(String)
+                   | #parserError(String)
 
     syntax MaybeMulti ::= Expression
                         | Multi
@@ -305,6 +306,85 @@ module YUL-CONFIG
             <reserved-names>
                 <block-names> .List </block-names>
                 <all-names> .Set </all-names>
+                <builtins>
+                    SetItem(stop)
+                    SetItem(add)
+                    SetItem(sub)
+                    SetItem(mul)
+                    SetItem(div)
+                    SetItem(sdiv)
+                    SetItem(mod)
+                    SetItem(smod)
+                    SetItem(exp)
+                    SetItem(not)
+                    SetItem(lt)
+                    SetItem(gt)
+                    SetItem(slt)
+                    SetItem(sgt)
+                    SetItem(eq)
+                    SetItem(iszero)
+                    SetItem(and)
+                    SetItem(or)
+                    SetItem(xor)
+                    SetItem(byte)
+                    SetItem(shl)
+                    SetItem(shr)
+                    SetItem(sar)
+                    SetItem(addmod)
+                    SetItem(mulmod)
+                    SetItem(signextend)
+                    SetItem(keccak256)
+                    SetItem(pc)
+                    SetItem(pop)
+                    SetItem(mload)
+                    SetItem(mstore)
+                    SetItem(mstore8)
+                    SetItem(sload)
+                    SetItem(sstore)
+                    SetItem(msize)
+                    SetItem(gas)
+                    SetItem(address)
+                    SetItem(balance)
+                    SetItem(selfbalance)
+                    SetItem(caller)
+                    SetItem(callvalue)
+                    SetItem(calldataload)
+                    SetItem(calldatasize)
+                    SetItem(calldatacopy)
+                    SetItem(codesize)
+                    SetItem(codecopy)
+                    SetItem(extcodesize)
+                    SetItem(extcodecopy)
+                    SetItem(returndatasize)
+                    SetItem(returndatacopy)
+                    SetItem(extcodehash)
+                    SetItem(create)
+                    SetItem(create2)
+                    SetItem(call)
+                    SetItem(callcode)
+                    SetItem(delegatecall)
+                    SetItem(staticcall)
+                    SetItem(return)
+                    SetItem(revert)
+                    SetItem(selfdestruct)
+                    SetItem(invalid)
+                    SetItem(log0)
+                    SetItem(log1)
+                    SetItem(log2)
+                    SetItem(log3)
+                    SetItem(log4)
+                    SetItem(chainid)
+                    SetItem(basefee)
+                    SetItem(origin)
+                    SetItem(gasprice)
+                    SetItem(blockhash)
+                    SetItem(coinbase)
+                    SetItem(timestamp)
+                    SetItem(number)
+                    SetItem(difficulty)
+                    SetItem(prevrandao)
+                    SetItem(gaslimit)
+                </builtins>
             </reserved-names>
         </checking>
 
@@ -365,10 +445,8 @@ module YUL
          <block-names> .List => ListItem(.Set) ... </block-names>
 
     rule <k> #popBlockNames => . ... </k>
-         <reserved-names>
-            <block-names> ListItem(BLOCKNAMES) => .List ... </block-names>
-            <all-names> ALLNAMES => ALLNAMES -Set BLOCKNAMES </all-names>
-         </reserved-names>
+        <block-names> ListItem(BLOCKNAMES) => .List ... </block-names>
+        <all-names> ALLNAMES => ALLNAMES -Set BLOCKNAMES </all-names>
 
     rule <k> #check(REST:Statement S:Statement) => #check(REST) ~> #check(S) ... </k>
 
@@ -410,12 +488,14 @@ module YUL
          <check-leave> _ => LEAVE </check-leave>
          <check-bc> _ => BC </check-bc>
 
+    rule <k> #reserveName(ID) => #parserError("Cannot use builtin function name " +String #IdToString(ID) +String " as identifier name.") ... </k>
+        <builtins> BUILTINS </builtins>
+        requires ID in BUILTINS
     rule <k> #reserveName(ID) => . ... </k>
-         <reserved-names>
-             <block-names> ListItem(BLOCKNAMES => BLOCKNAMES SetItem(ID)) ...  </block-names>
-             <all-names> ALLNAMES => ALLNAMES SetItem(ID) </all-names>
-         </reserved-names>
-        requires notBool (ID in ALLNAMES)
+        <block-names> ListItem(BLOCKNAMES => BLOCKNAMES SetItem(ID)) ...  </block-names>
+        <all-names> ALLNAMES => ALLNAMES SetItem(ID) </all-names>
+        <builtins> BUILTINS </builtins>
+        requires (notBool (ID in ALLNAMES)) andBool (notBool (ID in BUILTINS))
     rule <k> #reserveName(ID) => #declarationError("Variable name " +String #IdToString(ID) +String " already taken in this scope.") ... </k>   [owise]
 
     rule <k> #check(for { INIT } COND POST BODY) => #checkNoFns(INIT) ~> #check({ INIT for {} COND POST BODY }) ... </k>
@@ -546,7 +626,7 @@ module YUL
 
     rule <k> #letBind(ID, VAL:Int) => . ... </k>
          <vars> VARS:Map => VARS[ID <- !L:Int] </vars>
-         <store> ... .Map => !L |-> VAL ... </store>
+         <store> STORE => STORE[!L <- VAL]  </store>
          <funcs> FUNCS </funcs>
         requires (notBool (ID in_keys(VARS))) andBool (notBool (ID in_keys(FUNCS)))
 
@@ -976,13 +1056,13 @@ module YUL
 
     rule <k> #hoist(function ID ( PARAMS ) -> RETURNS BLOCK) => . ... </k>
          <funcs> FUNCS => FUNCS[ID <- !L:Int] </funcs>
-         <store> ... .Map => !L |-> (function ID ( PARAMS ) -> RETURNS BLOCK) ... </store>
+         <store> STORE => STORE [ !L <- (function ID ( PARAMS ) -> RETURNS BLOCK) ] </store>
          <vars> VARS </vars>
         requires (notBool (ID in_keys(FUNCS))) andBool (notBool (ID in_keys(VARS)))
 
     rule <k> #hoist(function ID ( PARAMS ) BLOCK) => . ... </k>
          <funcs> FUNCS => FUNCS[ID <- !L:Int] </funcs>
-         <store> ... .Map => !L |-> (function ID ( PARAMS ) BLOCK) ... </store>
+         <store> STORE => STORE [ !L <- (function ID ( PARAMS ) BLOCK) ] </store>
          <vars> VARS </vars>
         requires (notBool (ID in_keys(FUNCS))) andBool (notBool (ID in_keys(VARS)))
 endmodule
