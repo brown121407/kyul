@@ -1,28 +1,10 @@
 /*
-Copyright 2016-2022, Runtime Verification Inc.
-Copyright 2023 Alexandru-Sergiu Marton
-
-This file is part of KYUL.
-
-KYUL is free software: you can redistribute it and/or modify it under the
-terms of the GNU General Public License as published by the Free Software
-Foundation, either version 3 of the License, or (at your option) any later
-version.
-
-KYUL is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
-details.
-
-You should have received a copy of the GNU General Public License along
-with KYUL. If not, see <https://www.gnu.org/licenses/>.
-
 Adapted from the KEVM project: https://github.com/runtimeverification/evm-semantics
-Originally licensed under the BSD 3-Clause "New" or "Revised" License:
 
 BSD 3-Clause License
 
 Copyright (c) 2016-2022, Runtime Verification Inc.
+Copyright (c) 2023 Alexandru-Sergiu Marton
 
 All rights reserved.
 
