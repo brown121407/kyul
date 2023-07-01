@@ -17,8 +17,7 @@ LLVM_KOMPILE_OPTS += -Ideps/build/include			\
 DEPSPREFIX ?= $(CURDIR)/deps/build
 
 all: libcryptopp
-	kompile --backend haskell						\
-		--enable-search								\
+	kompile --backend llvm											\
 		--hook-namespaces "$(HOOK_NAMESPACES)"		\
 		$(addprefix -ccopt ,$(LLVM_KOMPILE_OPTS))	\
 		yul.k

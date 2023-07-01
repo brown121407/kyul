@@ -871,6 +871,8 @@ module YUL
             ...
          </account>
 
+    rule <k> #functionCall(balance) => 0 ... </k> [owise]
+
     // selfbalance()
     rule <k> #functionCall(selfbalance) => BALANCE ... </k>
          <fn-args> .Ints => . ... </fn-args>

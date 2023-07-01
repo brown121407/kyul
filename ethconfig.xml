@@ -3,7 +3,7 @@
         <call-state>
             <id> #hexNumberStringToInt("0xDFE8Abf04515497Ff4ED2860F0D1372604fcbbb7") </id>
             <caller> #hexNumberStringToInt("0xbe862ad9abfe6f22bcb087716c7d89a26051f74c") </caller>
-            <call-data> b"\xF0\xF1\xF2\xF3\xF4\xF5\xF6\xF7\xF8\xF9\xFA\xFB\xFC\xFD\xFE\xFF\xE0\xE1\xE2\xE3\xE4\xE5\xE6\xE7\xE8\xE9\xEA\xEB\xEC\xED\xEE\xEF" </call-data>
+            <call-data> b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xDF\xE8\xAb\xf0\x45\x15\x49\x7F\xf4\xED\x28\x60\xF0\xD1\x37\x26\x04\xfc\xbb\xb7" </call-data>
             <call-value> 0 </call-value>
             <local-mem> .Bytes </local-mem>
             <memory-used> 0 </memory-used>

@@ -1,0 +1,4 @@
+{
+  let foo
+  function foo() {}
+}
